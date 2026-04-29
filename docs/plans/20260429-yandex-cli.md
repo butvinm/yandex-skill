@@ -189,7 +189,7 @@ Integrates as a Claude Code skill at `.claude/skills/yandex/SKILL.md`. Skill inv
 - Modify: `cmd/yandex-cli/main.go` (use `internal/cli`)
 - Create: `internal/cli/cli_test.go`
 
-- [ ] define top-level CLI struct with nested subcommand structs:
+- [x] define top-level CLI struct with nested subcommand structs:
   ```go
   type CLI struct {
     JSON bool `help:"emit JSON instead of plain text" name:"json"`
@@ -214,12 +214,12 @@ Integrates as a Claude Code skill at `.claude/skills/yandex/SKILL.md`. Skill inv
     Version VersionCmd `cmd:"" help:"print version"`
   }
   ```
-- [ ] implement each command's `Run(ctx *kong.Context, parent *CLI)` method calling the corresponding client function and rendering via `internal/render`
-- [ ] wire `--json` as a global persistent flag; pass to render layer
-- [ ] for `create`/`update`: embed `BodyInput` from Task 8, call `Read()`
-- [ ] propagate `context.Background()` (or signal-aware ctx) into client calls
-- [ ] write tests: kong parses each command shape correctly; `--body` and `--body-file` mutual exclusion enforced; required-arg validation
-- [ ] run tests — must pass before Task 10
+- [x] implement each command's `Run(ctx *kong.Context, parent *CLI)` method calling the corresponding client function and rendering via `internal/render`
+- [x] wire `--json` as a global persistent flag; pass to render layer
+- [x] for `create`/`update`: embed `BodyInput` from Task 8, call `Read()`
+- [x] propagate `context.Background()` (or signal-aware ctx) into client calls
+- [x] write tests: kong parses each command shape correctly; `--body` and `--body-file` mutual exclusion enforced; required-arg validation
+- [x] run tests — must pass before Task 10
 
 ### Task 10: End-to-end test — full binary against httptest mock
 

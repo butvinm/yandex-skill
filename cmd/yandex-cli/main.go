@@ -1,9 +1,11 @@
 package main
 
-import "fmt"
+import (
+	"github.com/butvinm/yandex-cli/internal/cli"
+)
 
 var version = "dev"
 
 func main() {
-	fmt.Printf("yandex-cli %s\n", version)
+	cli.Main(version)
 }
