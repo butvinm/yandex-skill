@@ -46,10 +46,10 @@ func TestLoad(t *testing.T) {
 		{
 			name: "explicit base URLs override defaults",
 			env: map[string]string{
-				"YANDEX_TOKEN":             "t1.xxx",
-				"YANDEX_CLOUD_ORG_ID":      "org123",
-				"YANDEX_TRACKER_BASE_URL":  "https://t.example",
-				"YANDEX_WIKI_BASE_URL":     "https://w.example",
+				"YANDEX_TOKEN":            "t1.xxx",
+				"YANDEX_CLOUD_ORG_ID":     "org123",
+				"YANDEX_TRACKER_BASE_URL": "https://t.example",
+				"YANDEX_WIKI_BASE_URL":    "https://w.example",
 			},
 			wantCheck: func(t *testing.T, c Config) {
 				if c.TrackerBaseURL != "https://t.example" {

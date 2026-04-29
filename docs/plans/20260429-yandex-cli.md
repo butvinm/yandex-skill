@@ -269,14 +269,14 @@ Integrates as a Claude Code skill at `.claude/skills/yandex/SKILL.md`. Skill inv
 
 ### Task 13: Verify acceptance criteria
 
-- [ ] verify all 8 commands work against httptest mocks (covered by Task 10)
-- [ ] verify `--json` works on every command
-- [ ] verify error paths (missing env vars, bad token, 404s) emit clear messages in both plain and JSON modes
-- [ ] verify `--body` and `--body-file` mutual exclusion (kong should reject both at once)
-- [ ] verify `--body-file -` reads stdin
-- [ ] verify `make install` puts binary on PATH
-- [ ] run full test suite: `go test ./...`
-- [ ] run `go vet ./...` and `golangci-lint run` (if installed)
+- [x] verify all 8 commands work against httptest mocks (covered by Task 10)
+- [x] verify `--json` works on every command
+- [x] verify error paths (missing env vars, bad token, 404s) emit clear messages in both plain and JSON modes
+- [x] verify `--body` and `--body-file` mutual exclusion (kong should reject both at once)
+- [x] verify `--body-file -` reads stdin
+- [x] verify `make install` puts binary on PATH
+- [x] run full test suite: `go test ./...`
+- [x] run `go vet ./...` and `golangci-lint run` (if installed)
 
 ### Task 14: [Final] Move plan to completed
 

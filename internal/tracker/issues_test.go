@@ -15,11 +15,11 @@ import (
 
 func TestIssue_Plain(t *testing.T) {
 	i := Issue{
-		Key:       "FOO-1",
-		Summary:   "fix it",
-		Status:    Display{Display: "Open"},
-		Assignee:  Display{Display: "ivan"},
-		UpdatedAt: "2026-04-29T10:00Z",
+		Key:         "FOO-1",
+		Summary:     "fix it",
+		Status:      Display{Display: "Open"},
+		Assignee:    Display{Display: "ivan"},
+		UpdatedAt:   "2026-04-29T10:00Z",
 		Description: "do the thing",
 	}
 	got := i.Plain()

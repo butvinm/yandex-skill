@@ -59,10 +59,10 @@ type WikiCmd struct {
 }
 
 type WikiPagesCmd struct {
-	List   ListPagesCmd   `cmd:"" help:"list page descendants by parent slug"`
-	Get    GetPageCmd     `cmd:"" help:"get a page by slug"`
-	Create CreatePageCmd  `cmd:"" help:"create a page"`
-	Update UpdatePageCmd  `cmd:"" help:"update a page body"`
+	List   ListPagesCmd  `cmd:"" help:"list page descendants by parent slug"`
+	Get    GetPageCmd    `cmd:"" help:"get a page by slug"`
+	Create CreatePageCmd `cmd:"" help:"create a page"`
+	Update UpdatePageCmd `cmd:"" help:"update a page body"`
 }
 
 type VersionCmd struct{}
