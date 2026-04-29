@@ -280,9 +280,9 @@ Integrates as a Claude Code skill at `.claude/skills/yandex/SKILL.md`. Skill inv
 
 ### Task 14: [Final] Move plan to completed
 
-- [ ] update README/CLAUDE.md if any patterns surfaced during implementation worth recording
-- [ ] `mkdir -p docs/plans/completed && mv docs/plans/20260429-yandex-cli.md docs/plans/completed/`
-- [ ] commit the move
+- [x] update README/CLAUDE.md if any patterns surfaced during implementation worth recording
+- [x] `mkdir -p docs/plans/completed && mv docs/plans/20260429-yandex-cli.md docs/plans/completed/`
+- [x] commit the move
 
 ---
 
