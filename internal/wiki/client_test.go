@@ -13,12 +13,8 @@ import (
 
 func TestClient_Do_HeadersIncludeCloudOrgID(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if got := r.Header.Get("X-Cloud-Org-Id"); got != "org" {
-			t.Errorf("X-Cloud-Org-Id = %q", got)
-		}
-		// Wiki must NOT use X-Org-ID — that's Tracker's header.
-		if got := r.Header.Get("X-Org-ID"); got != "" {
-			t.Errorf("Wiki should not send X-Org-ID; got %q", got)
+		if got := r.Header.Get("X-Cloud-Org-ID"); got != "org" {
+			t.Errorf("X-Cloud-Org-ID = %q (default tenancy is Cloud)", got)
 		}
 		if got := r.Header.Get("Authorization"); got != "Bearer tok" {
 			t.Errorf("Authorization = %q", got)

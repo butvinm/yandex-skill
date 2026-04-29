@@ -79,10 +79,19 @@ func (c Config) authPrefix() string {
 	return "Bearer "
 }
 
+// orgHeaderName returns the org-id header name per tenancy. Both Tracker and
+// Wiki follow the same pattern: Cloud uses X-Cloud-Org-ID, 360 uses X-Org-ID.
+func (c Config) orgHeaderName() string {
+	if c.Tenancy == Y360 {
+		return "X-Org-ID"
+	}
+	return "X-Cloud-Org-ID"
+}
+
 func (c Config) TrackerHeaders() http.Header {
 	h := http.Header{}
 	h.Set("Authorization", c.authPrefix()+c.Token)
-	h.Set("X-Org-ID", c.OrgID)
+	h.Set(c.orgHeaderName(), c.OrgID)
 	h.Set("Content-Type", "application/json")
 	return h
 }
@@ -90,11 +99,7 @@ func (c Config) TrackerHeaders() http.Header {
 func (c Config) WikiHeaders() http.Header {
 	h := http.Header{}
 	h.Set("Authorization", c.authPrefix()+c.Token)
-	if c.Tenancy == Y360 {
-		h.Set("X-Org-Id", c.OrgID)
-	} else {
-		h.Set("X-Cloud-Org-Id", c.OrgID)
-	}
+	h.Set(c.orgHeaderName(), c.OrgID)
 	h.Set("Content-Type", "application/json")
 	return h
 }

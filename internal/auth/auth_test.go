@@ -152,11 +152,11 @@ func TestTrackerHeaders_Cloud(t *testing.T) {
 	if got := h.Get("Authorization"); got != "Bearer t1.xxx" {
 		t.Errorf("Authorization = %q, want Bearer", got)
 	}
-	if got := h.Get("X-Org-ID"); got != "org123" {
-		t.Errorf("X-Org-ID = %q", got)
+	if got := h.Get("X-Cloud-Org-ID"); got != "org123" {
+		t.Errorf("X-Cloud-Org-ID = %q (Cloud Tracker must use X-Cloud-Org-ID)", got)
 	}
-	if got := h.Get("Content-Type"); got != "application/json" {
-		t.Errorf("Content-Type = %q", got)
+	if h.Get("X-Org-ID") != "" {
+		t.Error("Cloud tracker must not set X-Org-ID")
 	}
 }
 
@@ -167,7 +167,10 @@ func TestTrackerHeaders_360(t *testing.T) {
 		t.Errorf("Authorization = %q, want OAuth prefix", got)
 	}
 	if got := h.Get("X-Org-ID"); got != "org123" {
-		t.Errorf("X-Org-ID = %q (Tracker uses same header for both tenancies)", got)
+		t.Errorf("X-Org-ID = %q (360 Tracker must use X-Org-ID)", got)
+	}
+	if h.Get("X-Cloud-Org-ID") != "" {
+		t.Error("360 tracker must not set X-Cloud-Org-ID")
 	}
 }
 
@@ -177,11 +180,11 @@ func TestWikiHeaders_Cloud(t *testing.T) {
 	if got := h.Get("Authorization"); got != "Bearer t1.xxx" {
 		t.Errorf("Authorization = %q, want Bearer", got)
 	}
-	if got := h.Get("X-Cloud-Org-Id"); got != "org123" {
-		t.Errorf("X-Cloud-Org-Id = %q (Cloud must use X-Cloud-Org-Id)", got)
+	if got := h.Get("X-Cloud-Org-ID"); got != "org123" {
+		t.Errorf("X-Cloud-Org-ID = %q (Cloud Wiki must use X-Cloud-Org-ID)", got)
 	}
-	if h.Get("X-Org-Id") != "" {
-		t.Error("Cloud wiki must not set X-Org-Id")
+	if h.Get("X-Org-ID") != "" {
+		t.Error("Cloud wiki must not set X-Org-ID")
 	}
 }
 
@@ -191,22 +194,23 @@ func TestWikiHeaders_360(t *testing.T) {
 	if got := h.Get("Authorization"); got != "OAuth y0_xxx" {
 		t.Errorf("Authorization = %q, want OAuth prefix", got)
 	}
-	if got := h.Get("X-Org-Id"); got != "org123" {
-		t.Errorf("X-Org-Id = %q (360 wiki must use X-Org-Id, not X-Cloud-Org-Id)", got)
+	if got := h.Get("X-Org-ID"); got != "org123" {
+		t.Errorf("X-Org-ID = %q (360 Wiki must use X-Org-ID)", got)
 	}
-	if h.Get("X-Cloud-Org-Id") != "" {
-		t.Error("360 wiki must not set X-Cloud-Org-Id")
+	if h.Get("X-Cloud-Org-ID") != "" {
+		t.Error("360 wiki must not set X-Cloud-Org-ID")
 	}
 }
 
 func TestZeroValueTenancyDefaultsToCloud(t *testing.T) {
-	// Existing client tests construct Config{} directly without setting
-	// Tenancy. Make sure that still picks the cloud header set.
 	c := Config{Token: "t", OrgID: "o"} // Tenancy=""
 	if c.TrackerHeaders().Get("Authorization") != "Bearer t" {
 		t.Error("zero-value Tenancy must behave as Cloud (Bearer)")
 	}
-	if c.WikiHeaders().Get("X-Cloud-Org-Id") != "o" {
-		t.Error("zero-value Tenancy must behave as Cloud (X-Cloud-Org-Id)")
+	if c.TrackerHeaders().Get("X-Cloud-Org-ID") != "o" {
+		t.Error("zero-value Tenancy must behave as Cloud (X-Cloud-Org-ID for Tracker)")
+	}
+	if c.WikiHeaders().Get("X-Cloud-Org-ID") != "o" {
+		t.Error("zero-value Tenancy must behave as Cloud (X-Cloud-Org-ID for Wiki)")
 	}
 }

@@ -28,8 +28,8 @@ func TestClient_Do_GET_Success(t *testing.T) {
 		if got := r.Header.Get("Authorization"); got != "Bearer tok" {
 			t.Errorf("Authorization = %q", got)
 		}
-		if got := r.Header.Get("X-Org-ID"); got != "org" {
-			t.Errorf("X-Org-ID = %q", got)
+		if got := r.Header.Get("X-Cloud-Org-ID"); got != "org" {
+			t.Errorf("X-Cloud-Org-ID = %q (default tenancy is Cloud)", got)
 		}
 		if r.URL.Path != "/v3/issues/FOO-1" {
 			t.Errorf("path = %s", r.URL.Path)
