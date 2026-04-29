@@ -96,13 +96,13 @@ Integrates as a Claude Code skill at `.claude/skills/yandex/SKILL.md`. Skill inv
 - Create: `internal/render/render.go`
 - Create: `internal/render/render_test.go`
 
-- [ ] define `type Format string; const (Plain Format = "plain"; JSON Format = "json")`
-- [ ] define `type Renderable interface { Plain() string }` — each domain type implements its own plain rendering
-- [ ] add `func Render(w io.Writer, format Format, v any) error` — JSON mode marshals with indent; plain mode requires `Renderable` (or a slice of `Renderable` joined by newlines)
-- [ ] add `func RenderError(w io.Writer, format Format, err error, status int)` — plain: prints to stderr; JSON: prints `{"error": "...", "status": <int>}` to stderr
-- [ ] add helper `func skipEmpty(parts ...string) string` — joins non-empty parts with two-space separator (used by list formatters)
-- [ ] write tests: JSON marshal correctness, plain rendering uses `Renderable.Plain()`, empty-field skipping in `skipEmpty`, error rendering in both formats
-- [ ] run tests — must pass before Task 4
+- [x] define `type Format string; const (Plain Format = "plain"; JSON Format = "json")`
+- [x] define `Plainer interface { Plain() string }` (single get) and `Rower interface { Row() string }` (list rows) — split because get/list use different layouts; using generics so JSON marshals concrete type
+- [x] add `One[T Plainer]`, `Many[T Rower]`, `Confirm(action, slug)` helpers
+- [x] add `Error(w, format, err, status)` — plain: `error (404): boom`; JSON: `{"error":"boom","status":404}`
+- [x] add `SkipEmpty(parts...)` (two-space join) and `SkipEmptyLines(parts...)` (newline join) helpers
+- [x] write tests for all six functions; both formats covered
+- [x] run tests — pass
 
 ### Task 4: Tracker HTTP client (no commands yet)
 
