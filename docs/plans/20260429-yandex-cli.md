@@ -12,10 +12,18 @@ Integrates as a Claude Code skill at `.claude/skills/yandex/SKILL.md`. Skill inv
 
 - **Working dir:** `/home/butvinm/Dev/yandex-cli` (greenfield — no files yet)
 - **Reference (rejected):** `n-r-w/yandex-mcp` (read-only, MCP-not-CLI, but its env-var conventions copied: `YANDEX_CLOUD_ORG_ID`, `YANDEX_TRACKER_BASE_URL`, `YANDEX_WIKI_BASE_URL`)
-- **API endpoints (verified during brainstorm):**
-  - Tracker `https://api.tracker.yandex.net/v3/` — header `X-Org-ID`, search via `POST /v3/issues/_search`
-  - Wiki `https://api.wiki.yandex.net/v1/` — header `X-Cloud-Org-Id` for Cloud (different from Tracker — real API quirk), pages under `/v1/pages`
-  - Both: `Authorization: Bearer <IAM-token>`
+- **API endpoints (all verified before plan commit, sources cited below):**
+  - **Tracker** `https://api.tracker.yandex.net/v3/` — header `X-Org-ID`. `Authorization: Bearer <IAM>`.
+    - `GET /v3/issues/{key}` — get issue. Response includes `key`, `summary`, `status` (object — use `.display`), `assignee` (object — use `.display`), `updatedAt`, `description`. ([source](https://yandex.ru/support/tracker/en/concepts/issues/get-issue))
+    - `POST /v3/issues/_search` — search. Body uses ONE of: `{"queue":"FOO"}`, `{"keys":[...]}`, `{"filter":{...}}`, `{"query":"..."}`. ([source](https://yandex.ru/support/tracker/en/concepts/issues/search-issues))
+    - `GET /v3/queues/` and `GET /v3/queues/{key}` — list/get queues. Fields: `key`, `name`, `lead` (object), `defaultPriority` (object). ([source](https://yandex.ru/support/tracker/en/concepts/queues/get-queues))
+  - **Wiki** `https://api.wiki.yandex.net/v1/` — header `X-Cloud-Org-Id` (different from Tracker — real API quirk). `Authorization: Bearer <IAM>`.
+    - `GET /v1/pages?slug=<slug>&fields=content` — get page. **`content` is omitted by default** — must request via `fields=content`. Response: `id`, `slug`, `title`, `attributes.modified_at`, `content`. ([source](https://yandex.ru/support/wiki/en/api-ref/pages/pages__get_page_details))
+    - `POST /v1/pages` — create. Body: `{slug, title, content}`. Optional query `?is_silent=true` to suppress notifications. ([source](https://yandex.ru/support/wiki/en/api-ref/pages/pages__create_page))
+    - `POST /v1/pages/{idx}` — update. **Path takes numeric id, NOT slug.** Body: `{title?, content?}`. So `update <slug>` is a two-step operation: GET by slug → resolve `id` → POST to `/pages/{id}`. ([source](https://yandex.ru/support/wiki/en/api-ref/pages/pages__update_page_details))
+    - `GET /v1/pages/descendants?slug=<parent>&page_size=50&cursor=...` — list children by parent slug. **Returns only `{id, slug}` per result** — title and modified_at NOT in list response. Cursor-paginated. ([source](https://yandex.ru/support/wiki/en/api-ref/pages/pages__descendants_by_slug))
+    - **No free-text search exists** — `--query` is dropped from `wiki pages list`.
+  - **Wiki content format:** docs say `content` is "page content as a string" but don't specify Markdown vs YFM. Yandex Wiki UI uses YFM (markdown superset). MVP assumption: pass user-provided text through verbatim; document in README that YFM features (cuts, notes, etc.) work, plain markdown also works.
 - **Yandex Wiki bans service accounts** ([wiki access doc](https://yandex.ru/support/wiki/en/api-ref/access)) — the CLI runs as a real user identity. Token comes from `yc iam create-token` on a user-authenticated `yc` profile.
 
 ## Development Approach
@@ -118,16 +126,17 @@ Integrates as a Claude Code skill at `.claude/skills/yandex/SKILL.md`. Skill inv
 - Create: `internal/tracker/issues_test.go`
 - Create: `internal/tracker/queues_test.go`
 
-- [ ] ⚠️ RESEARCH first: fetch `https://yandex.ru/support/tracker/ru/concepts/issues-api`, `https://yandex.ru/support/tracker/ru/concepts/queues-api`, `https://yandex.ru/support/tracker/ru/concepts/queries-filter` — confirm endpoint paths, JSON shapes, search request body
-- [ ] define `type Issue struct { Key, Summary, Status, Assignee, UpdatedAt, Description string }` (only fields we render)
-- [ ] implement `func (c *Client) GetIssue(ctx, key) (*Issue, error)` → `GET /v3/issues/{key}`
-- [ ] implement `func (c *Client) ListIssues(ctx, queue, query string) ([]Issue, error)` — uses `POST /v3/issues/_search` with `{"queue":"FOO"}` or `{"query":"..."}` body. If both empty, error out with "specify --queue or --query".
-- [ ] implement `Issue.Plain()` → `<KEY>: <title>\n\n<status>  <assignee>  <updated_at>\n\n<description>`. List item plain → `<KEY>  <status>  <assignee>  <title>` (single line)
-- [ ] define `type Queue struct { Key, Name, Lead, DefaultPriority string }`
-- [ ] implement `func (c *Client) GetQueue(ctx, key) (*Queue, error)` → `GET /v3/queues/{key}`
-- [ ] implement `func (c *Client) ListQueues(ctx) ([]Queue, error)` → `GET /v3/queues`
-- [ ] implement `Queue.Plain()` per design (block format for get, one-line for list)
-- [ ] write tests for each method (success + 404 + auth-failure paths) using `httptest`
+- [ ] define `type Display struct { Display string \`json:"display"\` }`— Tracker returns nested objects with a`.display` field for status/assignee/lead/defaultPriority
+- [ ] define `type Issue struct { Key, Summary, UpdatedAt, Description string; Status, Assignee Display }` (only fields we render)
+- [ ] implement `GetIssue(ctx, key) (*Issue, error)` → `GET /v3/issues/{key}`
+- [ ] implement `ListIssues(ctx, queue, query string) ([]Issue, error)` → `POST /v3/issues/_search`. Body: `{"queue":"FOO"}` if `queue` set, else `{"query":"..."}` if `query` set, else return validation error "specify --queue or --query". Handle pagination (Tracker uses `Link` header for next page) — fetch all pages.
+- [ ] implement `Issue.Plain()` → `<KEY>: <summary>\n\n<status.display>  <assignee.display>  <updatedAt>\n\n<description>`. Skip empty fields.
+- [ ] implement list-row plain helper `IssueRow(i) string` → `<KEY>  <status.display>  <assignee.display>  <summary>` (two-space-separated, skip empty)
+- [ ] define `type Queue struct { Key, Name string; Lead, DefaultPriority Display }`
+- [ ] implement `GetQueue(ctx, key) (*Queue, error)` → `GET /v3/queues/{key}`
+- [ ] implement `ListQueues(ctx) ([]Queue, error)` → `GET /v3/queues/`
+- [ ] implement `Queue.Plain()` and queue-row helper per design
+- [ ] write tests for each method (success + 404 + 401-auth-failure) using `httptest`. Assert request body shape for `_search`.
 - [ ] run tests — must pass before Task 6
 
 ### Task 6: Wiki HTTP client (no commands yet)
@@ -149,18 +158,15 @@ Integrates as a Claude Code skill at `.claude/skills/yandex/SKILL.md`. Skill inv
 - Create: `internal/wiki/pages.go`
 - Create: `internal/wiki/pages_test.go`
 
-- [ ] ⚠️ RESEARCH first: fetch `https://yandex.ru/support/wiki/en/api-ref/pages/get-page-details`, `.../create-page`, `.../update-page`, `.../get-page-descendants-by-slug`. Confirm:
-  - exact endpoint paths
-  - whether body content is plain markdown/YFM string in a `content` field, or richer structure
-  - whether list/descendants endpoint accepts a free-text query parameter — if not, drop `--query` for `wiki pages list` and surface clear error
-  - slug format expectations (leading slash? URL-encoded?)
-- [ ] define `type Page struct { Slug, Title, Body, ModifiedAt, Author string }`
-- [ ] implement `GetPage(ctx, slug) (*Page, error)`, `ListPages(ctx, parent, query string) ([]Page, error)` (drop `query` if API doesn't support it — add a kong-side validation error in Task 9 instead)
-- [ ] implement `CreatePage(ctx, slug, title, body string) (*Page, error)`
-- [ ] implement `UpdatePage(ctx, slug, body string) (*Page, error)`
-- [ ] implement `Page.Plain()` per design — get: `<title>\n\n<modified_at>  <author>\n\n<body>`; list item: `<slug>  <title>  <modified_at>`
-- [ ] write tests for each operation (success + error paths), assert request body shape matches what API expects
-- [ ] ➕ if research reveals create/update need different formats (e.g., YFM-specific content type), document in this plan and adjust
+- [ ] define `type Page struct { ID int64 \`json:"id"\`; Slug, Title, Content string; Attributes PageAttrs }`and`type PageAttrs struct { ModifiedAt string \`json:"modified_at"\` }`(drop`Author`— descendants endpoint doesn't return it;`get` endpoint doesn't either based on schema fetched. Re-verify during implementation; add if API exposes it)
+- [ ] define `type PageRef struct { ID int64; Slug string }` for descendant list rows
+- [ ] implement `GetPage(ctx, slug string) (*Page, error)` → `GET /v1/pages?slug=<urlencoded>&fields=content`. Always include `fields=content` — content is omitted by default per API.
+- [ ] implement `ListPages(ctx, parent string) ([]PageRef, error)` → `GET /v1/pages/descendants?slug=<parent>&page_size=100`, follow `next_cursor` until exhausted. Returns `id,slug` only — title/modified_at NOT included by descendants API.
+- [ ] implement `CreatePage(ctx, slug, title, content string) error` → `POST /v1/pages` with body `{slug, title, content}`. Pass `?is_silent=true` to suppress notifications (default; consider flag for opt-out later).
+- [ ] implement `UpdatePage(ctx, slug, content string) error` — TWO-STEP: first `GetPage(slug)` to resolve `id`, then `POST /v1/pages/{id}` with body `{content}`. Document this in code comment (only place a comment is justified — non-obvious API quirk).
+- [ ] implement `Page.Plain()` → `<title>\n\n<attributes.modified_at>\n\n<content>`. Skip empty fields. (No `author` in plain output until we confirm API exposes it — adjust plan if it does.)
+- [ ] implement list-row plain helper `PageRefRow(p PageRef) string` → just `<slug>` (single column, since title/modified_at unavailable from descendants API)
+- [ ] write tests for each operation (success + 4xx error paths) using `httptest`. Assert: GetPage URL contains `fields=content`, descendants paginates via cursor, UpdatePage does GET then POST in sequence.
 - [ ] run tests — must pass before Task 8
 
 ### Task 8: Body input helper — flag pair handling
@@ -255,7 +261,7 @@ Integrates as a Claude Code skill at `.claude/skills/yandex/SKILL.md`. Skill inv
   2. **Available commands** — bullet list of all 8 commands with one-line descriptions
   3. **Worked examples** (3):
      - "Read an issue": `yandex-cli tracker issues get FOO-1`
-     - "List open issues in a queue": `yandex-cli tracker issues list --queue FOO --query "Status: !Closed"`
+     - "List open issues in a queue": `yandex-cli tracker issues list --query "Queue: FOO and Status: !Closed"` (Tracker search API takes queue OR query, not both — combine via query language)
      - "Write a wiki page from a draft": `yandex-cli wiki pages create --slug team/notes/2026-04-29 --title "Notes" --body-file draft.md`
   4. **Output format note** — plain text by default, `--json` for parsing
   5. **Error handling** — non-zero exit means failure; `--json` flag emits structured error
