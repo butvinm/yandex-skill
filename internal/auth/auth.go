@@ -13,7 +13,6 @@ const (
 
 	envToken          = "YANDEX_TOKEN"
 	envOrgID          = "YANDEX_ORG_ID"
-	envCloudOrgID     = "YANDEX_CLOUD_ORG_ID" // fallback for users coming from n-r-w/yandex-mcp
 	envTenancy        = "YANDEX_TENANCY"
 	envTrackerBaseURL = "YANDEX_TRACKER_BASE_URL"
 	envWikiBaseURL    = "YANDEX_WIKI_BASE_URL"
@@ -43,14 +42,9 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("%s must be 'cloud' or '360', got %q", envTenancy, tenancy)
 	}
 
-	orgID := os.Getenv(envOrgID)
-	if orgID == "" {
-		orgID = os.Getenv(envCloudOrgID)
-	}
-
 	c := Config{
 		Token:          os.Getenv(envToken),
-		OrgID:          orgID,
+		OrgID:          os.Getenv(envOrgID),
 		Tenancy:        tenancy,
 		TrackerBaseURL: os.Getenv(envTrackerBaseURL),
 		WikiBaseURL:    os.Getenv(envWikiBaseURL),

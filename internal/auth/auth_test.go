@@ -81,31 +81,6 @@ func TestLoad(t *testing.T) {
 			},
 		},
 		{
-			name: "YANDEX_CLOUD_ORG_ID still works as fallback",
-			env: map[string]string{
-				"YANDEX_TOKEN":        "t1.xxx",
-				"YANDEX_CLOUD_ORG_ID": "legacy123",
-			},
-			wantCheck: func(t *testing.T, c Config) {
-				if c.OrgID != "legacy123" {
-					t.Errorf("OrgID = %q, want legacy123 (fallback)", c.OrgID)
-				}
-			},
-		},
-		{
-			name: "YANDEX_ORG_ID preferred over YANDEX_CLOUD_ORG_ID",
-			env: map[string]string{
-				"YANDEX_TOKEN":        "t1.xxx",
-				"YANDEX_ORG_ID":       "new123",
-				"YANDEX_CLOUD_ORG_ID": "legacy123",
-			},
-			wantCheck: func(t *testing.T, c Config) {
-				if c.OrgID != "new123" {
-					t.Errorf("OrgID = %q, want new123", c.OrgID)
-				}
-			},
-		},
-		{
 			name: "defaults applied when base URLs unset",
 			env: map[string]string{
 				"YANDEX_TOKEN":  "t1.xxx",
@@ -144,10 +119,8 @@ func TestLoad(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Clear all relevant env vars for isolation; t.Setenv only sets,
-			// it doesn't unset what's not in tt.env.
 			for _, k := range []string{
-				"YANDEX_TOKEN", "YANDEX_ORG_ID", "YANDEX_CLOUD_ORG_ID",
+				"YANDEX_TOKEN", "YANDEX_ORG_ID",
 				"YANDEX_TENANCY", "YANDEX_TRACKER_BASE_URL", "YANDEX_WIKI_BASE_URL",
 			} {
 				t.Setenv(k, "")

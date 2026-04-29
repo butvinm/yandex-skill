@@ -52,11 +52,11 @@ yandex-cli tracker queues list      # should print all queues
 yandex-cli wiki pages get <known/slug>  # should print page body
 ```
 
-From Claude Code, ask: _"list my Yandex Tracker queues"_ — Claude should auto-invoke the `yandex` skill and call the binary. Or list active skills via `/help`.
+From Claude Code, ask: _"list my Yandex Tracker queues"_ — Claude should auto-invoke the `yandex` skill and call the binary. Or list active skills via `/skills`.
 
 ## Auth setup
 
-The CLI supports both **Yandex Cloud Organization** (default) and **Yandex 360 for Business** tenancies. Pick one — you can't use both at once. Set `YANDEX_TENANCY=cloud` (default) or `YANDEX_TENANCY=360`.
+The CLI supports both **Yandex Cloud Organization** (default) and **Yandex 360 for Business** tenancies. Set `YANDEX_TENANCY=cloud` (default) or `YANDEX_TENANCY=360`.
 
 ### Cloud Organization (IAM token via `yc`)
 
@@ -109,13 +109,13 @@ The CLI supports both **Yandex Cloud Organization** (default) and **Yandex 360 f
 
 ## Environment variables
 
-| Variable                  | Required | Default                          | Notes                                                |
-| ------------------------- | -------- | -------------------------------- | ---------------------------------------------------- |
-| `YANDEX_TOKEN`            | yes      | —                                | IAM (Cloud) or OAuth (360)                           |
-| `YANDEX_ORG_ID`           | yes      | —                                | `YANDEX_CLOUD_ORG_ID` is also accepted as a fallback |
-| `YANDEX_TENANCY`          | no       | `cloud`                          | `cloud` or `360`                                     |
-| `YANDEX_TRACKER_BASE_URL` | no       | `https://api.tracker.yandex.net` |                                                      |
-| `YANDEX_WIKI_BASE_URL`    | no       | `https://api.wiki.yandex.net`    |                                                      |
+| Variable                  | Required | Default                          | Notes                                            |
+| ------------------------- | -------- | -------------------------------- | ------------------------------------------------ |
+| `YANDEX_TOKEN`            | yes      | —                                | IAM (Cloud) or OAuth (360)                       |
+| `YANDEX_ORG_ID`           | yes      | —                                | Cloud org id or 360 org id, depending on tenancy |
+| `YANDEX_TENANCY`          | no       | `cloud`                          | `cloud` or `360`                                 |
+| `YANDEX_TRACKER_BASE_URL` | no       | `https://api.tracker.yandex.net` |                                                  |
+| `YANDEX_WIKI_BASE_URL`    | no       | `https://api.wiki.yandex.net`    |                                                  |
 
 ## Output
 

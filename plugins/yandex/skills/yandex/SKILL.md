@@ -12,7 +12,7 @@ This skill exposes 8 commands via the `yandex-cli` binary (must be on PATH).
 These environment variables must be set in the user's shell:
 
 - `YANDEX_TOKEN` — IAM token (Cloud) or OAuth token (360)
-- `YANDEX_ORG_ID` — organization ID (or `YANDEX_CLOUD_ORG_ID` as fallback)
+- `YANDEX_ORG_ID` — Cloud org id (Cloud tenancy) or 360 org id (360 tenancy) — different IDs
 - `YANDEX_TENANCY` — `cloud` (default) or `360`
 
 If any are missing, the CLI exits non-zero with a tenancy-specific hint in the error message. Direct the user to the project README for setup; do NOT try to set these yourself.
