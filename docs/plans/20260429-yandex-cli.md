@@ -111,11 +111,11 @@ Integrates as a Claude Code skill at `.claude/skills/yandex/SKILL.md`. Skill inv
 - Create: `internal/tracker/client.go`
 - Create: `internal/tracker/client_test.go`
 
-- [ ] define `type Client struct { http *http.Client; baseURL string; headers http.Header }`, constructor `New(cfg auth.Config) *Client`
-- [ ] add `func (c *Client) do(ctx context.Context, method, path string, body, out any) error` — marshals body, sets headers, decodes into `out`, returns typed error on non-2xx (`type APIError struct { Status int; Message string }`)
-- [ ] handle pagination via Tracker's `Link` / `X-Total-Count` headers — return all pages as a single slice from list/search calls (document this; reconsider if response sizes get huge)
-- [ ] write tests using `httptest.NewServer`: success path, 4xx error mapping, header propagation, multi-page pagination
-- [ ] run tests — must pass before Task 5
+- [x] define `type Client struct { http *http.Client; baseURL string; headers http.Header }`, constructor `New(cfg auth.Config) *Client`
+- [x] add `Do(ctx, method, url, body, out) (*http.Response, error)` — marshals body, sets headers, decodes into `out`, returns typed `APIError{Status, Message}` on non-2xx. Returns response for pagination header inspection.
+- [x] add `DoPaginated(ctx, path, body, fetchPage)` — follows `Link rel="next"` headers
+- [x] write tests using `httptest.NewServer`: GET success, POST body marshal, 4xx → APIError, multi-page pagination, Link parser
+- [x] run tests — pass
 
 ### Task 5: Tracker domain types — Issue, Queue — and operations
 
