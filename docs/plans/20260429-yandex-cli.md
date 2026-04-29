@@ -227,9 +227,9 @@ Integrates as a Claude Code skill at `.claude/skills/yandex/SKILL.md`. Skill inv
 
 - Create: `internal/cli/e2e_test.go`
 
-- [ ] table-driven test that invokes the kong parser with sample argv, points clients at `httptest.NewServer` mocks for both Tracker and Wiki, captures stdout/stderr, asserts exit code and output format (plain and JSON)
-- [ ] cover at least: `tracker issues get FOO-1`, `tracker issues list --queue FOO`, `wiki pages get /some/slug`, `wiki pages create --slug X --title T --body B`, error case with auth failure
-- [ ] run `go test ./...` — full suite must pass before Task 11
+- [x] table-driven test that invokes the kong parser with sample argv, points clients at `httptest.NewServer` mocks for both Tracker and Wiki, captures stdout/stderr, asserts exit code and output format (plain and JSON)
+- [x] cover at least: `tracker issues get FOO-1`, `tracker issues list --queue FOO`, `wiki pages get /some/slug`, `wiki pages create --slug X --title T --body B`, error case with auth failure
+- [x] run `go test ./...` — full suite must pass before Task 11
 
 ### Task 11: README — auth setup, fine-grained-token disclaimer, usage
 
