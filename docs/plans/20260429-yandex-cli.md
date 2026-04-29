@@ -68,12 +68,12 @@ Integrates as a Claude Code skill at `.claude/skills/yandex/SKILL.md`. Skill inv
 - Create: `.gitignore`
 - Create: `README.md` (stub — auth setup section deferred to Task 11)
 
-- [ ] `go mod init github.com/butvinm/yandex-cli`
-- [ ] add minimal `cmd/yandex-cli/main.go` printing version (placeholder for kong wiring)
-- [ ] add `Makefile` targets: `build`, `install`, `test`, `lint`, `vet`, `fmt`. `build` runs `go build -ldflags "-X main.version=$(shell git describe --tags --always 2>/dev/null || echo dev)" -o bin/yandex-cli ./cmd/yandex-cli`
-- [ ] add `.gitignore` for `bin/`, `*.test`, `coverage.out`
-- [ ] verify `make build` produces working binary that prints version
-- [ ] (no tests this task — pure scaffolding, nothing to test yet)
+- [x] `go mod init github.com/butvinm/yandex-cli`
+- [x] add minimal `cmd/yandex-cli/main.go` printing version (placeholder for kong wiring)
+- [x] add `Makefile` targets: `build`, `install`, `test`, `lint`, `vet`, `fmt`. `build` runs `go build -ldflags "-X main.version=$(shell git describe --tags --always 2>/dev/null || echo dev)" -o bin/yandex-cli ./cmd/yandex-cli`
+- [x] add `.gitignore` for `bin/`, `*.test`, `coverage.out`
+- [x] verify `make build` produces working binary that prints version
+- [x] (no tests this task — pure scaffolding, nothing to test yet)
 
 ### Task 2: Auth module — read env, build product-specific headers
 
