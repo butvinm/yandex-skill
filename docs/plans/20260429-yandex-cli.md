@@ -255,8 +255,8 @@ Integrates as a Claude Code skill at `.claude/skills/yandex/SKILL.md`. Skill inv
 
 - Create: `.claude/skills/yandex/SKILL.md`
 
-- [ ] frontmatter: `name: yandex`, `description: Read Yandex Tracker issues and queues; read and write Yandex Wiki pages. Use when the user asks to fetch issue details, list issues by queue, read a wiki page, or create/update wiki pages.`
-- [ ] body sections:
+- [x] frontmatter: `name: yandex`, `description: Read Yandex Tracker issues and queues; read and write Yandex Wiki pages. Use when the user asks to fetch issue details, list issues by queue, read a wiki page, or create/update wiki pages.`
+- [x] body sections:
   1. **Prerequisites** — `YANDEX_TOKEN` and `YANDEX_CLOUD_ORG_ID` must be set in the user's shell. If not, instruct user to read README.
   2. **Available commands** — bullet list of all 8 commands with one-line descriptions
   3. **Worked examples** (3):
