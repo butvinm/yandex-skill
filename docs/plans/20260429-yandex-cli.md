@@ -176,10 +176,10 @@ Integrates as a Claude Code skill at `.claude/skills/yandex/SKILL.md`. Skill inv
 - Create: `internal/cli/body.go`
 - Create: `internal/cli/body_test.go`
 
-- [ ] define `type BodyInput struct { Body string; BodyFile string }` with kong tags `xor:"body"` so kong enforces mutual exclusivity
-- [ ] add `func (b BodyInput) Read() (string, error)` — returns `Body` if set, reads file if `BodyFile` set (handles `-` as stdin via `os.Stdin`), errors if both empty
-- [ ] write tests: inline body, file body, stdin via `-` (with redirected stdin), both-empty error
-- [ ] run tests — must pass before Task 9
+- [x] define `type BodyInput struct { Body string; BodyFile string }` with kong tags `xor:"body"` so kong enforces mutual exclusivity
+- [x] add `func (b BodyInput) Read() (string, error)` — returns `Body` if set, reads file if `BodyFile` set (handles `-` as stdin via `os.Stdin`), errors if both empty
+- [x] write tests: inline body, file body, stdin via `-` (with redirected stdin), both-empty error
+- [x] run tests — must pass before Task 9
 
 ### Task 9: kong wiring — root + tracker + wiki commands
 
