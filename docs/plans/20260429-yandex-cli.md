@@ -82,12 +82,12 @@ Integrates as a Claude Code skill at `.claude/skills/yandex/SKILL.md`. Skill inv
 - Create: `internal/auth/auth.go`
 - Create: `internal/auth/auth_test.go`
 
-- [ ] define `type Config struct { Token, OrgID, TrackerBaseURL, WikiBaseURL string }` and `func Load() (Config, error)` reading `YANDEX_TOKEN`, `YANDEX_CLOUD_ORG_ID`, `YANDEX_TRACKER_BASE_URL` (default `https://api.tracker.yandex.net`), `YANDEX_WIKI_BASE_URL` (default `https://api.wiki.yandex.net`)
-- [ ] return clear error if `YANDEX_TOKEN` or `YANDEX_CLOUD_ORG_ID` missing — error message hints at `yc iam create-token` and `yc organization-manager organization list`
-- [ ] add `func (c Config) TrackerHeaders() http.Header` → `Authorization: Bearer <token>`, `X-Org-ID: <orgid>`, `Content-Type: application/json`
-- [ ] add `func (c Config) WikiHeaders() http.Header` → `Authorization: Bearer <token>`, `X-Cloud-Org-Id: <orgid>`, `Content-Type: application/json`
-- [ ] write tests: env-var precedence, missing-required-vars error, default base URLs, header builders for both products
-- [ ] run `go test ./internal/auth/...` — must pass before Task 3
+- [x] define `type Config struct { Token, OrgID, TrackerBaseURL, WikiBaseURL string }` and `func Load() (Config, error)` reading `YANDEX_TOKEN`, `YANDEX_CLOUD_ORG_ID`, `YANDEX_TRACKER_BASE_URL` (default `https://api.tracker.yandex.net`), `YANDEX_WIKI_BASE_URL` (default `https://api.wiki.yandex.net`)
+- [x] return clear error if `YANDEX_TOKEN` or `YANDEX_CLOUD_ORG_ID` missing — error message hints at `yc iam create-token` and `yc organization-manager organization list`
+- [x] add `func (c Config) TrackerHeaders() http.Header` → `Authorization: Bearer <token>`, `X-Org-ID: <orgid>`, `Content-Type: application/json`
+- [x] add `func (c Config) WikiHeaders() http.Header` → `Authorization: Bearer <token>`, `X-Cloud-Org-Id: <orgid>`, `Content-Type: application/json`
+- [x] write tests: env-var precedence, missing-required-vars error, default base URLs, header builders for both products
+- [x] run `go test ./internal/auth/...` — must pass before Task 3
 
 ### Task 3: Render module — plain + JSON formatters
 
