@@ -237,7 +237,7 @@ Integrates as a Claude Code skill at `.claude/skills/yandex/SKILL.md`. Skill inv
 
 - Modify: `README.md`
 
-- [ ] sections:
+- [x] sections:
   1. **What** — one-paragraph pitch
   2. **Install** — `go install github.com/butvinm/yandex-cli/cmd/yandex-cli@latest`, ensure `$GOBIN` on PATH
   3. **Setup** — install `yc` ([yandex.cloud/en/docs/cli/quickstart](https://yandex.cloud/en/docs/cli/quickstart)), `yc init`, `yc iam create-token`, `yc organization-manager organization list`, set env vars
@@ -246,8 +246,8 @@ Integrates as a Claude Code skill at `.claude/skills/yandex/SKILL.md`. Skill inv
   6. **Usage** — all 8 commands with one example each
   7. **Limitations** — no 360, no OAuth, no attachments, Tracker write deferred. Contributions welcome.
   8. **Header inconsistency note** — for transparency, document why Tracker uses `X-Org-ID` and Wiki uses `X-Cloud-Org-Id` despite same tenancy
-- [ ] verify all linked URLs resolve
-- [ ] (no test step — docs)
+- [x] verify all linked URLs resolve
+- [x] (no test step — docs)
 
 ### Task 12: Claude Code skill — SKILL.md
 
