@@ -146,10 +146,10 @@ Integrates as a Claude Code skill at `.claude/skills/yandex/SKILL.md`. Skill inv
 - Create: `internal/wiki/client.go`
 - Create: `internal/wiki/client_test.go`
 
-- [ ] mirror Task 4 structure but using `WikiHeaders()` and `WikiBaseURL`
-- [ ] same `APIError` type pattern (consider extracting to a shared package later — for now duplicate, prefer duplication over premature abstraction)
-- [ ] write tests using `httptest`: success path, 4xx mapping, header propagation including `X-Cloud-Org-Id` (different from Tracker — assert this in test)
-- [ ] run tests — must pass before Task 7
+- [x] mirror Task 4 structure but using `WikiHeaders()` and `WikiBaseURL`
+- [x] same `APIError` type pattern (consider extracting to a shared package later — for now duplicate, prefer duplication over premature abstraction)
+- [x] write tests using `httptest`: success path, 4xx mapping, header propagation including `X-Cloud-Org-Id` (different from Tracker — assert this in test)
+- [x] run tests — must pass before Task 7
 
 ### Task 7: Wiki Pages — types, get/list/create/update
 
