@@ -126,18 +126,18 @@ Integrates as a Claude Code skill at `.claude/skills/yandex/SKILL.md`. Skill inv
 - Create: `internal/tracker/issues_test.go`
 - Create: `internal/tracker/queues_test.go`
 
-- [ ] define `type Display struct { Display string \`json:"display"\` }`— Tracker returns nested objects with a`.display` field for status/assignee/lead/defaultPriority
-- [ ] define `type Issue struct { Key, Summary, UpdatedAt, Description string; Status, Assignee Display }` (only fields we render)
-- [ ] implement `GetIssue(ctx, key) (*Issue, error)` → `GET /v3/issues/{key}`
-- [ ] implement `ListIssues(ctx, queue, query string) ([]Issue, error)` → `POST /v3/issues/_search`. Body: `{"queue":"FOO"}` if `queue` set, else `{"query":"..."}` if `query` set, else return validation error "specify --queue or --query". Handle pagination (Tracker uses `Link` header for next page) — fetch all pages.
-- [ ] implement `Issue.Plain()` → `<KEY>: <summary>\n\n<status.display>  <assignee.display>  <updatedAt>\n\n<description>`. Skip empty fields.
-- [ ] implement list-row plain helper `IssueRow(i) string` → `<KEY>  <status.display>  <assignee.display>  <summary>` (two-space-separated, skip empty)
-- [ ] define `type Queue struct { Key, Name string; Lead, DefaultPriority Display }`
-- [ ] implement `GetQueue(ctx, key) (*Queue, error)` → `GET /v3/queues/{key}`
-- [ ] implement `ListQueues(ctx) ([]Queue, error)` → `GET /v3/queues/`
-- [ ] implement `Queue.Plain()` and queue-row helper per design
-- [ ] write tests for each method (success + 404 + 401-auth-failure) using `httptest`. Assert request body shape for `_search`.
-- [ ] run tests — must pass before Task 6
+- [x] define `type Display struct { Display string \`json:"display"\` }`— Tracker returns nested objects with a`.display` field for status/assignee/lead/defaultPriority
+- [x] define `type Issue struct { Key, Summary, UpdatedAt, Description string; Status, Assignee Display }` (only fields we render)
+- [x] implement `GetIssue(ctx, key) (*Issue, error)` → `GET /v3/issues/{key}`
+- [x] implement `ListIssues(ctx, queue, query string) ([]Issue, error)` → `POST /v3/issues/_search`. Body: `{"queue":"FOO"}` if `queue` set, else `{"query":"..."}` if `query` set, else return validation error "specify --queue or --query". Handle pagination (Tracker uses `Link` header for next page) — fetch all pages.
+- [x] implement `Issue.Plain()` → `<KEY>: <summary>\n\n<status.display>  <assignee.display>  <updatedAt>\n\n<description>`. Skip empty fields.
+- [x] implement list-row plain helper `IssueRow(i) string` → `<KEY>  <status.display>  <assignee.display>  <summary>` (two-space-separated, skip empty)
+- [x] define `type Queue struct { Key, Name string; Lead, DefaultPriority Display }`
+- [x] implement `GetQueue(ctx, key) (*Queue, error)` → `GET /v3/queues/{key}`
+- [x] implement `ListQueues(ctx) ([]Queue, error)` → `GET /v3/queues/`
+- [x] implement `Queue.Plain()` and queue-row helper per design
+- [x] write tests for each method (success + 404 + 401-auth-failure) using `httptest`. Assert request body shape for `_search`.
+- [x] run tests — must pass before Task 6
 
 ### Task 6: Wiki HTTP client (no commands yet)
 
