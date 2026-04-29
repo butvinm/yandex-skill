@@ -56,15 +56,16 @@ func TestRequiredArgsValidated(t *testing.T) {
 }
 
 func TestAuthErrorPropagates(t *testing.T) {
-	// no env vars set → Load() should fail with helpful message
-	t.Setenv("YANDEX_TOKEN", "")
+	// only token set, no org var → Load() should fail with the no-org-var hint
+	t.Setenv("YANDEX_TOKEN", "tok")
 	t.Setenv("YANDEX_CLOUD_ORG_ID", "")
+	t.Setenv("YANDEX_ORG_ID", "")
 	_, stderr, exit := runCLI(t, nil, "tracker", "queues", "list")
 	if exit != 1 {
 		t.Errorf("exit = %d", exit)
 	}
-	if !strings.Contains(stderr, "YANDEX_TOKEN not set") {
-		t.Errorf("stderr = %q", stderr)
+	if !strings.Contains(stderr, "YANDEX_CLOUD_ORG_ID") || !strings.Contains(stderr, "YANDEX_ORG_ID") {
+		t.Errorf("stderr should name both vars: %q", stderr)
 	}
 }
 

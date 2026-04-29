@@ -13,78 +13,72 @@ func TestLoad(t *testing.T) {
 		wantCheck func(t *testing.T, c Config)
 	}{
 		{
-			name: "missing token cloud (default tenancy)",
+			name: "neither org var set",
 			env: map[string]string{
-				"YANDEX_TOKEN":   "",
-				"YANDEX_ORG_ID":  "org123",
+				"YANDEX_TOKEN": "t1.xxx",
+			},
+			wantErr: "set YANDEX_CLOUD_ORG_ID for Yandex Cloud Organization, or YANDEX_ORG_ID for Yandex 360",
+		},
+		{
+			name: "both org vars set",
+			env: map[string]string{
+				"YANDEX_TOKEN":        "t1.xxx",
+				"YANDEX_CLOUD_ORG_ID": "cloud123",
+				"YANDEX_ORG_ID":       "y360_456",
+			},
+			wantErr: "set exactly one of YANDEX_CLOUD_ORG_ID (Cloud) or YANDEX_ORG_ID (360), not both",
+		},
+		{
+			name: "missing token cloud",
+			env: map[string]string{
+				"YANDEX_TOKEN":        "",
+				"YANDEX_CLOUD_ORG_ID": "cloud123",
 			},
 			wantErr: "YANDEX_TOKEN not set; run: export",
 		},
 		{
 			name: "missing token 360 hints at oauth",
 			env: map[string]string{
-				"YANDEX_TENANCY": "360",
-				"YANDEX_TOKEN":   "",
-				"YANDEX_ORG_ID":  "org123",
+				"YANDEX_TOKEN":  "",
+				"YANDEX_ORG_ID": "y360_456",
 			},
 			wantErr: "for 360, get an OAuth token at oauth.yandex.com",
 		},
 		{
-			name: "missing org id cloud",
+			name: "cloud tenancy detected from YANDEX_CLOUD_ORG_ID",
 			env: map[string]string{
-				"YANDEX_TOKEN":  "t1.xxx",
-				"YANDEX_ORG_ID": "",
-			},
-			wantErr: "yc organization-manager organization list",
-		},
-		{
-			name: "missing org id 360",
-			env: map[string]string{
-				"YANDEX_TENANCY": "360",
-				"YANDEX_TOKEN":   "y0_xxx",
-				"YANDEX_ORG_ID":  "",
-			},
-			wantErr: "Yandex Tracker → Administration → Organizations",
-		},
-		{
-			name: "invalid tenancy rejected",
-			env: map[string]string{
-				"YANDEX_TENANCY": "yandexCloud",
-				"YANDEX_TOKEN":   "t1.xxx",
-				"YANDEX_ORG_ID":  "org",
-			},
-			wantErr: "must be 'cloud' or '360'",
-		},
-		{
-			name: "default tenancy is cloud",
-			env: map[string]string{
-				"YANDEX_TOKEN":  "t1.xxx",
-				"YANDEX_ORG_ID": "org123",
+				"YANDEX_TOKEN":        "t1.xxx",
+				"YANDEX_CLOUD_ORG_ID": "cloud123",
 			},
 			wantCheck: func(t *testing.T, c Config) {
 				if c.Tenancy != Cloud {
 					t.Errorf("Tenancy = %q, want cloud", c.Tenancy)
 				}
+				if c.OrgID != "cloud123" {
+					t.Errorf("OrgID = %q", c.OrgID)
+				}
 			},
 		},
 		{
-			name: "tenancy 360 honored",
+			name: "360 tenancy detected from YANDEX_ORG_ID",
 			env: map[string]string{
-				"YANDEX_TENANCY": "360",
-				"YANDEX_TOKEN":   "y0_xxx",
-				"YANDEX_ORG_ID":  "org123",
+				"YANDEX_TOKEN":  "y0_xxx",
+				"YANDEX_ORG_ID": "y360_456",
 			},
 			wantCheck: func(t *testing.T, c Config) {
 				if c.Tenancy != Y360 {
 					t.Errorf("Tenancy = %q, want 360", c.Tenancy)
+				}
+				if c.OrgID != "y360_456" {
+					t.Errorf("OrgID = %q", c.OrgID)
 				}
 			},
 		},
 		{
 			name: "defaults applied when base URLs unset",
 			env: map[string]string{
-				"YANDEX_TOKEN":  "t1.xxx",
-				"YANDEX_ORG_ID": "org123",
+				"YANDEX_TOKEN":        "t1.xxx",
+				"YANDEX_CLOUD_ORG_ID": "cloud123",
 			},
 			wantCheck: func(t *testing.T, c Config) {
 				if c.TrackerBaseURL != "https://api.tracker.yandex.net" {
@@ -99,7 +93,7 @@ func TestLoad(t *testing.T) {
 			name: "explicit base URLs override defaults",
 			env: map[string]string{
 				"YANDEX_TOKEN":            "t1.xxx",
-				"YANDEX_ORG_ID":           "org123",
+				"YANDEX_CLOUD_ORG_ID":     "cloud123",
 				"YANDEX_TRACKER_BASE_URL": "https://t.example",
 				"YANDEX_WIKI_BASE_URL":    "https://w.example",
 			},
@@ -110,9 +104,6 @@ func TestLoad(t *testing.T) {
 				if c.WikiBaseURL != "https://w.example" {
 					t.Errorf("wiki = %q", c.WikiBaseURL)
 				}
-				if c.Token != "t1.xxx" || c.OrgID != "org123" {
-					t.Errorf("token=%q orgid=%q", c.Token, c.OrgID)
-				}
 			},
 		},
 	}
@@ -120,8 +111,8 @@ func TestLoad(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			for _, k := range []string{
-				"YANDEX_TOKEN", "YANDEX_ORG_ID",
-				"YANDEX_TENANCY", "YANDEX_TRACKER_BASE_URL", "YANDEX_WIKI_BASE_URL",
+				"YANDEX_TOKEN", "YANDEX_ORG_ID", "YANDEX_CLOUD_ORG_ID",
+				"YANDEX_TRACKER_BASE_URL", "YANDEX_WIKI_BASE_URL",
 			} {
 				t.Setenv(k, "")
 			}

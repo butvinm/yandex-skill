@@ -12,8 +12,8 @@ const (
 	defaultWikiBaseURL    = "https://api.wiki.yandex.net"
 
 	envToken          = "YANDEX_TOKEN"
-	envOrgID          = "YANDEX_ORG_ID"
-	envTenancy        = "YANDEX_TENANCY"
+	envCloudOrgID     = "YANDEX_CLOUD_ORG_ID" // presence implies Cloud tenancy
+	envOrgID          = "YANDEX_ORG_ID"       // presence implies 360 tenancy
 	envTrackerBaseURL = "YANDEX_TRACKER_BASE_URL"
 	envWikiBaseURL    = "YANDEX_WIKI_BASE_URL"
 )
@@ -34,17 +34,29 @@ type Config struct {
 }
 
 func Load() (Config, error) {
-	tenancy := Tenancy(os.Getenv(envTenancy))
-	if tenancy == "" {
-		tenancy = Cloud
+	cloudID := os.Getenv(envCloudOrgID)
+	org360ID := os.Getenv(envOrgID)
+
+	if cloudID != "" && org360ID != "" {
+		return Config{}, fmt.Errorf("set exactly one of %s (Cloud) or %s (360), not both", envCloudOrgID, envOrgID)
 	}
-	if tenancy != Cloud && tenancy != Y360 {
-		return Config{}, fmt.Errorf("%s must be 'cloud' or '360', got %q", envTenancy, tenancy)
+
+	var tenancy Tenancy
+	var orgID string
+	switch {
+	case cloudID != "":
+		tenancy = Cloud
+		orgID = cloudID
+	case org360ID != "":
+		tenancy = Y360
+		orgID = org360ID
+	default:
+		return Config{}, fmt.Errorf("set %s for Yandex Cloud Organization, or %s for Yandex 360 for Business", envCloudOrgID, envOrgID)
 	}
 
 	c := Config{
 		Token:          os.Getenv(envToken),
-		OrgID:          os.Getenv(envOrgID),
+		OrgID:          orgID,
 		Tenancy:        tenancy,
 		TrackerBaseURL: os.Getenv(envTrackerBaseURL),
 		WikiBaseURL:    os.Getenv(envWikiBaseURL),
@@ -60,12 +72,6 @@ func Load() (Config, error) {
 			return Config{}, errors.New(envToken + " not set; for 360, get an OAuth token at oauth.yandex.com")
 		}
 		return Config{}, errors.New(envToken + " not set; run: export " + envToken + "=$(yc iam create-token)")
-	}
-	if c.OrgID == "" {
-		if tenancy == Y360 {
-			return Config{}, errors.New(envOrgID + " not set; find via Yandex Tracker → Administration → Organizations")
-		}
-		return Config{}, errors.New(envOrgID + " not set; find via: yc organization-manager organization list")
 	}
 	return c, nil
 }

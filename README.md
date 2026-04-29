@@ -56,7 +56,12 @@ From Claude Code, ask: _"list my Yandex Tracker queues"_ — Claude should auto-
 
 ## Auth setup
 
-The CLI supports both **Yandex Cloud Organization** (default) and **Yandex 360 for Business** tenancies. Set `YANDEX_TENANCY=cloud` (default) or `YANDEX_TENANCY=360`.
+The CLI supports both **Yandex Cloud Organization** and **Yandex 360 for Business** tenancies. Tenancy is selected by which org-id env var you set:
+
+- `YANDEX_CLOUD_ORG_ID` set → Cloud (uses IAM `Bearer` token + `X-Cloud-Org-ID` header)
+- `YANDEX_ORG_ID` set → 360 (uses OAuth token + `X-Org-ID` header)
+
+Set exactly one — both at once is rejected.
 
 ### Cloud Organization (IAM token via `yc`)
 
@@ -66,10 +71,10 @@ The CLI supports both **Yandex Cloud Organization** (default) and **Yandex 360 f
    yc init
    ```
 
-2. Find your organization id and export it (e.g. in `~/.zshrc`):
+2. Find your Cloud Organization id and export it (e.g. in `~/.zshrc`):
 
    ```sh
-   export YANDEX_ORG_ID=$(yc organization-manager organization list --format json | jq -r '.[0].id')
+   export YANDEX_CLOUD_ORG_ID=$(yc organization-manager organization list --format json | jq -r '.[0].id')
    ```
 
 3. Per session, refresh the IAM token:
@@ -82,13 +87,7 @@ The CLI supports both **Yandex Cloud Organization** (default) and **Yandex 360 f
 
 ### Yandex 360 for Business (OAuth token)
 
-1. Set the tenancy:
-
-   ```sh
-   export YANDEX_TENANCY=360
-   ```
-
-2. Get an OAuth token:
+1. Get an OAuth token:
    - Register an app at [oauth.yandex.com](https://oauth.yandex.com/) (one-time)
    - Pick scopes: `tracker:read` for Tracker; `wiki:read` and `wiki:write` for Wiki
    - Visit `https://oauth.yandex.com/authorize?response_type=token&client_id=<your-client-id>` in a browser
@@ -101,21 +100,21 @@ The CLI supports both **Yandex Cloud Organization** (default) and **Yandex 360 f
 
    OAuth tokens last ≥1 year and respect the scopes you selected at app registration.
 
-3. Find your organization id at **Yandex Tracker → Administration → Organizations** ([source](https://yandex.ru/support/wiki/en/api-ref/access)) and export:
+2. Find your 360 organization id at **Yandex Tracker → Administration → Organizations** ([source](https://yandex.ru/support/wiki/en/api-ref/access)) and export:
 
    ```sh
-   export YANDEX_ORG_ID=<your-org-id>
+   export YANDEX_ORG_ID=<your-360-org-id>
    ```
 
 ## Environment variables
 
-| Variable                  | Required | Default                          | Notes                                            |
-| ------------------------- | -------- | -------------------------------- | ------------------------------------------------ |
-| `YANDEX_TOKEN`            | yes      | —                                | IAM (Cloud) or OAuth (360)                       |
-| `YANDEX_ORG_ID`           | yes      | —                                | Cloud org id or 360 org id, depending on tenancy |
-| `YANDEX_TENANCY`          | no       | `cloud`                          | `cloud` or `360`                                 |
-| `YANDEX_TRACKER_BASE_URL` | no       | `https://api.tracker.yandex.net` |                                                  |
-| `YANDEX_WIKI_BASE_URL`    | no       | `https://api.wiki.yandex.net`    |                                                  |
+| Variable                  | Required               | Default                          | Notes                                            |
+| ------------------------- | ---------------------- | -------------------------------- | ------------------------------------------------ |
+| `YANDEX_TOKEN`            | yes                    | —                                | IAM (Cloud) or OAuth (360)                       |
+| `YANDEX_CLOUD_ORG_ID`     | one of these is needed | —                                | Cloud Organization id; presence selects Cloud    |
+| `YANDEX_ORG_ID`           | one of these is needed | —                                | Yandex 360 organization id; presence selects 360 |
+| `YANDEX_TRACKER_BASE_URL` | no                     | `https://api.tracker.yandex.net` |                                                  |
+| `YANDEX_WIKI_BASE_URL`    | no                     | `https://api.wiki.yandex.net`    |                                                  |
 
 ## Output
 
