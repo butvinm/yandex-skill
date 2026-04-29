@@ -158,16 +158,16 @@ Integrates as a Claude Code skill at `.claude/skills/yandex/SKILL.md`. Skill inv
 - Create: `internal/wiki/pages.go`
 - Create: `internal/wiki/pages_test.go`
 
-- [ ] define `type Page struct { ID int64 \`json:"id"\`; Slug, Title, Content string; Attributes PageAttrs }`and`type PageAttrs struct { ModifiedAt string \`json:"modified_at"\` }`(drop`Author`— descendants endpoint doesn't return it;`get` endpoint doesn't either based on schema fetched. Re-verify during implementation; add if API exposes it)
-- [ ] define `type PageRef struct { ID int64; Slug string }` for descendant list rows
-- [ ] implement `GetPage(ctx, slug string) (*Page, error)` → `GET /v1/pages?slug=<urlencoded>&fields=content`. Always include `fields=content` — content is omitted by default per API.
-- [ ] implement `ListPages(ctx, parent string) ([]PageRef, error)` → `GET /v1/pages/descendants?slug=<parent>&page_size=100`, follow `next_cursor` until exhausted. Returns `id,slug` only — title/modified_at NOT included by descendants API.
-- [ ] implement `CreatePage(ctx, slug, title, content string) error` → `POST /v1/pages` with body `{slug, title, content}`. Pass `?is_silent=true` to suppress notifications (default; consider flag for opt-out later).
-- [ ] implement `UpdatePage(ctx, slug, content string) error` — TWO-STEP: first `GetPage(slug)` to resolve `id`, then `POST /v1/pages/{id}` with body `{content}`. Document this in code comment (only place a comment is justified — non-obvious API quirk).
-- [ ] implement `Page.Plain()` → `<title>\n\n<attributes.modified_at>\n\n<content>`. Skip empty fields. (No `author` in plain output until we confirm API exposes it — adjust plan if it does.)
-- [ ] implement list-row plain helper `PageRefRow(p PageRef) string` → just `<slug>` (single column, since title/modified_at unavailable from descendants API)
-- [ ] write tests for each operation (success + 4xx error paths) using `httptest`. Assert: GetPage URL contains `fields=content`, descendants paginates via cursor, UpdatePage does GET then POST in sequence.
-- [ ] run tests — must pass before Task 8
+- [x] define `type Page struct { ID int64 \`json:"id"\`; Slug, Title, Content string; Attributes PageAttrs }`and`type PageAttrs struct { ModifiedAt string \`json:"modified_at"\` }`(drop`Author`— descendants endpoint doesn't return it;`get` endpoint doesn't either based on schema fetched. Re-verify during implementation; add if API exposes it)
+- [x] define `type PageRef struct { ID int64; Slug string }` for descendant list rows
+- [x] implement `GetPage(ctx, slug string) (*Page, error)` → `GET /v1/pages?slug=<urlencoded>&fields=content`. Always include `fields=content` — content is omitted by default per API.
+- [x] implement `ListPages(ctx, parent string) ([]PageRef, error)` → `GET /v1/pages/descendants?slug=<parent>&page_size=100`, follow `next_cursor` until exhausted. Returns `id,slug` only — title/modified_at NOT included by descendants API.
+- [x] implement `CreatePage(ctx, slug, title, content string) error` → `POST /v1/pages` with body `{slug, title, content}`. Pass `?is_silent=true` to suppress notifications (default; consider flag for opt-out later).
+- [x] implement `UpdatePage(ctx, slug, content string) error` — TWO-STEP: first `GetPage(slug)` to resolve `id`, then `POST /v1/pages/{id}` with body `{content}`. Document this in code comment (only place a comment is justified — non-obvious API quirk).
+- [x] implement `Page.Plain()` → `<title>\n\n<attributes.modified_at>\n\n<content>`. Skip empty fields. (No `author` in plain output until we confirm API exposes it — adjust plan if it does.)
+- [x] implement list-row plain helper `PageRefRow(p PageRef) string` → just `<slug>` (single column, since title/modified_at unavailable from descendants API)
+- [x] write tests for each operation (success + 4xx error paths) using `httptest`. Assert: GetPage URL contains `fields=content`, descendants paginates via cursor, UpdatePage does GET then POST in sequence.
+- [x] run tests — must pass before Task 8
 
 ### Task 8: Body input helper — flag pair handling
 
