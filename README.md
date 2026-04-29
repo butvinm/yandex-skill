@@ -1,6 +1,6 @@
 # yandex-cli
 
-A small Go CLI for **Yandex Tracker** (read) and **Yandex Wiki** (read + write), packaged as a Claude Code skill in `.claude/skills/yandex/`. Plain text by default, `--json` for parsing, token from env, no extra dependencies beyond [kong](https://github.com/alecthomas/kong).
+A small Go CLI for **Yandex Tracker** (read) and **Yandex Wiki** (read + write), distributed as a Claude Code plugin (`/plugin install yandex@butvinm-yandex-cli`). Plain text by default, `--json` for parsing, token from env, no extra dependencies beyond [kong](https://github.com/alecthomas/kong).
 
 ## What it does
 
@@ -28,17 +28,19 @@ go install github.com/butvinm/yandex-cli/cmd/yandex-cli@latest
 
 Make sure `$(go env GOBIN)` (or `$(go env GOPATH)/bin` if `GOBIN` is unset) is on your `PATH`.
 
-### 2. Install the Claude Code skill
+### 2. Install the Claude Code plugin
 
-The skill lives at `.claude/skills/yandex/SKILL.md` in this repo. Two ways to use it:
+In a Claude Code session:
 
-**Project-local (auto-discovered):** clone this repo and run `claude` from inside it. The skill is loaded automatically.
+```
+/plugin marketplace add butvinm/yandex-cli
+/plugin install yandex@butvinm-yandex-cli
+```
 
-**Globally available across all projects:** symlink it into your user skills directory:
+To test the plugin without installing it (e.g. during development of this repo):
 
 ```sh
-mkdir -p ~/.claude/skills
-ln -s "$(pwd)/.claude/skills/yandex" ~/.claude/skills/yandex
+claude --plugin-dir plugins/yandex
 ```
 
 ### 3. Verify

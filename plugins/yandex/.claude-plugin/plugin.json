@@ -1,0 +1,11 @@
+{
+  "name": "yandex",
+  "description": "Read Yandex Tracker issues/queues and read+write Yandex Wiki pages via the yandex-cli binary",
+  "version": "0.1.0",
+  "author": {
+    "name": "butvinm"
+  },
+  "homepage": "https://github.com/butvinm/yandex-cli",
+  "repository": "https://github.com/butvinm/yandex-cli",
+  "license": "MIT"
+}

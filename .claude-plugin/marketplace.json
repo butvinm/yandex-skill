@@ -1,0 +1,13 @@
+{
+  "name": "butvinm-yandex-cli",
+  "owner": {
+    "name": "butvinm"
+  },
+  "plugins": [
+    {
+      "name": "yandex",
+      "source": "./plugins/yandex",
+      "description": "Read Yandex Tracker issues/queues and read+write Yandex Wiki pages via the yandex-cli binary"
+    }
+  ]
+}
