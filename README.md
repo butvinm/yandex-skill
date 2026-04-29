@@ -56,9 +56,9 @@ From Claude Code, ask: _"list my Yandex Tracker queues"_ — Claude should auto-
 
 ## Auth setup
 
-This MVP supports **Yandex Cloud Organization** tenancy only. Yandex 360 Business is not supported yet.
+The CLI supports both **Yandex Cloud Organization** (default) and **Yandex 360 for Business** tenancies. Pick one — you can't use both at once. Set `YANDEX_TENANCY=cloud` (default) or `YANDEX_TENANCY=360`.
 
-### One-time
+### Cloud Organization (IAM token via `yc`)
 
 1. Install [`yc`](https://yandex.cloud/en/docs/cli/quickstart) and authenticate:
 
@@ -66,40 +66,56 @@ This MVP supports **Yandex Cloud Organization** tenancy only. Yandex 360 Busines
    yc init
    ```
 
-2. Find your organization id:
+2. Find your organization id and export it (e.g. in `~/.zshrc`):
 
    ```sh
-   yc organization-manager organization list
+   export YANDEX_ORG_ID=$(yc organization-manager organization list --format json | jq -r '.[0].id')
    ```
 
-3. Export it once (e.g. in `~/.zshrc`):
+3. Per session, refresh the IAM token:
 
    ```sh
-   export YANDEX_CLOUD_ORG_ID=<your-org-id>
+   export YANDEX_TOKEN=$(yc iam create-token)
    ```
 
-### Per session
+   IAM tokens last at most 12 hours ([source](https://yandex.cloud/en/docs/iam/operations/iam-token/create-for-sa)). They carry your full account permissions; they are not scope-limited.
 
-```sh
-export YANDEX_TOKEN=$(yc iam create-token)
-```
+### Yandex 360 for Business (OAuth token)
 
-Or per call:
+1. Set the tenancy:
 
-```sh
-YANDEX_TOKEN=$(yc iam create-token) yandex-cli tracker issues get FOO-1
-```
+   ```sh
+   export YANDEX_TENANCY=360
+   ```
 
-IAM tokens last at most 12 hours ([source](https://yandex.cloud/en/docs/iam/operations/iam-token/create-for-sa)) — refresh whenever you start a fresh session. Note that IAM tokens carry your full account permissions; they are not scope-limited.
+2. Get an OAuth token:
+   - Register an app at [oauth.yandex.com](https://oauth.yandex.com/) (one-time)
+   - Pick scopes: `tracker:read` for Tracker; `wiki:read` and `wiki:write` for Wiki
+   - Visit `https://oauth.yandex.com/authorize?response_type=token&client_id=<your-client-id>` in a browser
+   - Copy the token from the redirect URL fragment
+   - Export it:
+
+   ```sh
+   export YANDEX_TOKEN=<oauth-token>
+   ```
+
+   OAuth tokens last ≥1 year and respect the scopes you selected at app registration.
+
+3. Find your organization id at **Yandex Tracker → Administration → Organizations** ([source](https://yandex.ru/support/wiki/en/api-ref/access)) and export:
+
+   ```sh
+   export YANDEX_ORG_ID=<your-org-id>
+   ```
 
 ## Environment variables
 
-| Variable                  | Required | Default                          |
-| ------------------------- | -------- | -------------------------------- |
-| `YANDEX_TOKEN`            | yes      | —                                |
-| `YANDEX_CLOUD_ORG_ID`     | yes      | —                                |
-| `YANDEX_TRACKER_BASE_URL` | no       | `https://api.tracker.yandex.net` |
-| `YANDEX_WIKI_BASE_URL`    | no       | `https://api.wiki.yandex.net`    |
+| Variable                  | Required | Default                          | Notes                                                |
+| ------------------------- | -------- | -------------------------------- | ---------------------------------------------------- |
+| `YANDEX_TOKEN`            | yes      | —                                | IAM (Cloud) or OAuth (360)                           |
+| `YANDEX_ORG_ID`           | yes      | —                                | `YANDEX_CLOUD_ORG_ID` is also accepted as a fallback |
+| `YANDEX_TENANCY`          | no       | `cloud`                          | `cloud` or `360`                                     |
+| `YANDEX_TRACKER_BASE_URL` | no       | `https://api.tracker.yandex.net` |                                                      |
+| `YANDEX_WIKI_BASE_URL`    | no       | `https://api.wiki.yandex.net`    |                                                      |
 
 ## Output
 
@@ -122,7 +138,6 @@ Errors go to stderr with non-zero exit. With `--json`, errors are JSON: `{"error
 
 ## Limitations
 
-- **No Yandex 360 Business tenancy** (OAuth required, deferred)
 - **No Tracker writes** (no comments, no transitions, no edits)
 - **No Wiki attachments / image uploads**
 - **No pagination flags** — clients fetch all pages internally
@@ -130,4 +145,4 @@ Errors go to stderr with non-zero exit. With `--json`, errors are JSON: `{"error
 
 ## Contributions
 
-Welcome — especially OAuth support for Yandex 360, attachments, and Tracker writes.
+Welcome — especially attachments and Tracker writes.

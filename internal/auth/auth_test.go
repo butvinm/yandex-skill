@@ -13,26 +13,103 @@ func TestLoad(t *testing.T) {
 		wantCheck func(t *testing.T, c Config)
 	}{
 		{
-			name: "missing token",
+			name: "missing token cloud (default tenancy)",
 			env: map[string]string{
-				"YANDEX_TOKEN":        "",
-				"YANDEX_CLOUD_ORG_ID": "org123",
+				"YANDEX_TOKEN":   "",
+				"YANDEX_ORG_ID":  "org123",
 			},
-			wantErr: "YANDEX_TOKEN not set",
+			wantErr: "YANDEX_TOKEN not set; run: export",
 		},
 		{
-			name: "missing org id",
+			name: "missing token 360 hints at oauth",
+			env: map[string]string{
+				"YANDEX_TENANCY": "360",
+				"YANDEX_TOKEN":   "",
+				"YANDEX_ORG_ID":  "org123",
+			},
+			wantErr: "for 360, get an OAuth token at oauth.yandex.com",
+		},
+		{
+			name: "missing org id cloud",
+			env: map[string]string{
+				"YANDEX_TOKEN":  "t1.xxx",
+				"YANDEX_ORG_ID": "",
+			},
+			wantErr: "yc organization-manager organization list",
+		},
+		{
+			name: "missing org id 360",
+			env: map[string]string{
+				"YANDEX_TENANCY": "360",
+				"YANDEX_TOKEN":   "y0_xxx",
+				"YANDEX_ORG_ID":  "",
+			},
+			wantErr: "Yandex Tracker → Administration → Organizations",
+		},
+		{
+			name: "invalid tenancy rejected",
+			env: map[string]string{
+				"YANDEX_TENANCY": "yandexCloud",
+				"YANDEX_TOKEN":   "t1.xxx",
+				"YANDEX_ORG_ID":  "org",
+			},
+			wantErr: "must be 'cloud' or '360'",
+		},
+		{
+			name: "default tenancy is cloud",
+			env: map[string]string{
+				"YANDEX_TOKEN":  "t1.xxx",
+				"YANDEX_ORG_ID": "org123",
+			},
+			wantCheck: func(t *testing.T, c Config) {
+				if c.Tenancy != Cloud {
+					t.Errorf("Tenancy = %q, want cloud", c.Tenancy)
+				}
+			},
+		},
+		{
+			name: "tenancy 360 honored",
+			env: map[string]string{
+				"YANDEX_TENANCY": "360",
+				"YANDEX_TOKEN":   "y0_xxx",
+				"YANDEX_ORG_ID":  "org123",
+			},
+			wantCheck: func(t *testing.T, c Config) {
+				if c.Tenancy != Y360 {
+					t.Errorf("Tenancy = %q, want 360", c.Tenancy)
+				}
+			},
+		},
+		{
+			name: "YANDEX_CLOUD_ORG_ID still works as fallback",
 			env: map[string]string{
 				"YANDEX_TOKEN":        "t1.xxx",
-				"YANDEX_CLOUD_ORG_ID": "",
+				"YANDEX_CLOUD_ORG_ID": "legacy123",
 			},
-			wantErr: "YANDEX_CLOUD_ORG_ID not set",
+			wantCheck: func(t *testing.T, c Config) {
+				if c.OrgID != "legacy123" {
+					t.Errorf("OrgID = %q, want legacy123 (fallback)", c.OrgID)
+				}
+			},
+		},
+		{
+			name: "YANDEX_ORG_ID preferred over YANDEX_CLOUD_ORG_ID",
+			env: map[string]string{
+				"YANDEX_TOKEN":        "t1.xxx",
+				"YANDEX_ORG_ID":       "new123",
+				"YANDEX_CLOUD_ORG_ID": "legacy123",
+			},
+			wantCheck: func(t *testing.T, c Config) {
+				if c.OrgID != "new123" {
+					t.Errorf("OrgID = %q, want new123", c.OrgID)
+				}
+			},
 		},
 		{
 			name: "defaults applied when base URLs unset",
 			env: map[string]string{
-				"YANDEX_TOKEN":        "t1.xxx",
-				"YANDEX_CLOUD_ORG_ID": "org123",
+				"YANDEX_TOKEN":  "t1.xxx",
+				"YANDEX_ORG_ID": "org123",
 			},
 			wantCheck: func(t *testing.T, c Config) {
 				if c.TrackerBaseURL != "https://api.tracker.yandex.net" {
@@ -47,7 +124,7 @@ func TestLoad(t *testing.T) {
 			name: "explicit base URLs override defaults",
 			env: map[string]string{
 				"YANDEX_TOKEN":            "t1.xxx",
-				"YANDEX_CLOUD_ORG_ID":     "org123",
+				"YANDEX_ORG_ID":           "org123",
 				"YANDEX_TRACKER_BASE_URL": "https://t.example",
 				"YANDEX_WIKI_BASE_URL":    "https://w.example",
 			},
@@ -67,6 +144,14 @@ func TestLoad(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Clear all relevant env vars for isolation; t.Setenv only sets,
+			// it doesn't unset what's not in tt.env.
+			for _, k := range []string{
+				"YANDEX_TOKEN", "YANDEX_ORG_ID", "YANDEX_CLOUD_ORG_ID",
+				"YANDEX_TENANCY", "YANDEX_TRACKER_BASE_URL", "YANDEX_WIKI_BASE_URL",
+			} {
+				t.Setenv(k, "")
+			}
 			for k, v := range tt.env {
 				t.Setenv(k, v)
 			}
@@ -88,11 +173,11 @@ func TestLoad(t *testing.T) {
 	}
 }
 
-func TestTrackerHeaders(t *testing.T) {
-	c := Config{Token: "t1.xxx", OrgID: "org123"}
+func TestTrackerHeaders_Cloud(t *testing.T) {
+	c := Config{Token: "t1.xxx", OrgID: "org123", Tenancy: Cloud}
 	h := c.TrackerHeaders()
 	if got := h.Get("Authorization"); got != "Bearer t1.xxx" {
-		t.Errorf("Authorization = %q", got)
+		t.Errorf("Authorization = %q, want Bearer", got)
 	}
 	if got := h.Get("X-Org-ID"); got != "org123" {
 		t.Errorf("X-Org-ID = %q", got)
@@ -102,29 +187,53 @@ func TestTrackerHeaders(t *testing.T) {
 	}
 }
 
-func TestWikiHeaders(t *testing.T) {
-	c := Config{Token: "t1.xxx", OrgID: "org123"}
-	h := c.WikiHeaders()
-	if got := h.Get("Authorization"); got != "Bearer t1.xxx" {
-		t.Errorf("Authorization = %q", got)
+func TestTrackerHeaders_360(t *testing.T) {
+	c := Config{Token: "y0_xxx", OrgID: "org123", Tenancy: Y360}
+	h := c.TrackerHeaders()
+	if got := h.Get("Authorization"); got != "OAuth y0_xxx" {
+		t.Errorf("Authorization = %q, want OAuth prefix", got)
 	}
-	if got := h.Get("X-Cloud-Org-Id"); got != "org123" {
-		t.Errorf("X-Cloud-Org-Id = %q", got)
-	}
-	if got := h.Get("Content-Type"); got != "application/json" {
-		t.Errorf("Content-Type = %q", got)
-	}
-	if h.Get("X-Org-ID") != "" {
-		t.Error("Wiki must not set X-Org-ID; got non-empty")
+	if got := h.Get("X-Org-ID"); got != "org123" {
+		t.Errorf("X-Org-ID = %q (Tracker uses same header for both tenancies)", got)
 	}
 }
 
-func TestTrackerVsWikiHeadersDiffer(t *testing.T) {
-	c := Config{Token: "t1.xxx", OrgID: "org123"}
-	if c.TrackerHeaders().Get("X-Org-ID") == "" {
-		t.Error("tracker must use X-Org-ID")
+func TestWikiHeaders_Cloud(t *testing.T) {
+	c := Config{Token: "t1.xxx", OrgID: "org123", Tenancy: Cloud}
+	h := c.WikiHeaders()
+	if got := h.Get("Authorization"); got != "Bearer t1.xxx" {
+		t.Errorf("Authorization = %q, want Bearer", got)
 	}
-	if c.WikiHeaders().Get("X-Cloud-Org-Id") == "" {
-		t.Error("wiki must use X-Cloud-Org-Id")
+	if got := h.Get("X-Cloud-Org-Id"); got != "org123" {
+		t.Errorf("X-Cloud-Org-Id = %q (Cloud must use X-Cloud-Org-Id)", got)
+	}
+	if h.Get("X-Org-Id") != "" {
+		t.Error("Cloud wiki must not set X-Org-Id")
+	}
+}
+
+func TestWikiHeaders_360(t *testing.T) {
+	c := Config{Token: "y0_xxx", OrgID: "org123", Tenancy: Y360}
+	h := c.WikiHeaders()
+	if got := h.Get("Authorization"); got != "OAuth y0_xxx" {
+		t.Errorf("Authorization = %q, want OAuth prefix", got)
+	}
+	if got := h.Get("X-Org-Id"); got != "org123" {
+		t.Errorf("X-Org-Id = %q (360 wiki must use X-Org-Id, not X-Cloud-Org-Id)", got)
+	}
+	if h.Get("X-Cloud-Org-Id") != "" {
+		t.Error("360 wiki must not set X-Cloud-Org-Id")
+	}
+}
+
+func TestZeroValueTenancyDefaultsToCloud(t *testing.T) {
+	// Existing client tests construct Config{} directly without setting
+	// Tenancy. Make sure that still picks the cloud header set.
+	c := Config{Token: "t", OrgID: "o"} // Tenancy=""
+	if c.TrackerHeaders().Get("Authorization") != "Bearer t" {
+		t.Error("zero-value Tenancy must behave as Cloud (Bearer)")
+	}
+	if c.WikiHeaders().Get("X-Cloud-Org-Id") != "o" {
+		t.Error("zero-value Tenancy must behave as Cloud (X-Cloud-Org-Id)")
 	}
 }

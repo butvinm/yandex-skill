@@ -1,6 +1,6 @@
 ---
 name: yandex
-description: Read Yandex Tracker issues and queues; read and write Yandex Wiki pages. Use when the user asks to fetch issue details, list issues by queue, read a wiki page, or create/update wiki pages. Cloud Organization tenancy only (no Yandex 360).
+description: Read Yandex Tracker issues and queues; read and write Yandex Wiki pages. Use when the user asks to fetch issue details, list issues by queue, read a wiki page, or create/update wiki pages. Supports Yandex Cloud Organization (default) and Yandex 360 for Business tenancies.
 ---
 
 # Yandex Tracker + Wiki
@@ -11,10 +11,11 @@ This skill exposes 8 commands via the `yandex-cli` binary (must be on PATH).
 
 These environment variables must be set in the user's shell:
 
-- `YANDEX_TOKEN` — IAM token, refreshed via `yc iam create-token` (lasts 12h max)
-- `YANDEX_CLOUD_ORG_ID` — Yandex Cloud Organization ID
+- `YANDEX_TOKEN` — IAM token (Cloud) or OAuth token (360)
+- `YANDEX_ORG_ID` — organization ID (or `YANDEX_CLOUD_ORG_ID` as fallback)
+- `YANDEX_TENANCY` — `cloud` (default) or `360`
 
-If either is missing, the CLI exits non-zero with a message pointing at the right `yc` command. Direct the user to the project README for setup; do NOT try to set these yourself.
+If any are missing, the CLI exits non-zero with a tenancy-specific hint in the error message. Direct the user to the project README for setup; do NOT try to set these yourself.
 
 ## Available commands
 
@@ -74,7 +75,6 @@ echo "# Summary\n\nFoo" | yandex-cli wiki pages update team/notes/2026-04-29 --b
 
 ## Limitations
 
-- No Yandex 360 Business tenancy
 - No Tracker writes (no comments, transitions, edits)
 - No Wiki attachments / image uploads
 - No free-text search for Wiki — `pages list` accepts `--parent` only
