@@ -41,8 +41,10 @@ type cachedToken struct {
 	AcquiredAt time.Time `json:"acquired_at"`
 }
 
+var cacheDirFn = os.UserCacheDir
+
 func cacheFilePath() (string, error) {
-	dir, err := os.UserCacheDir()
+	dir, err := cacheDirFn()
 	if err != nil {
 		return "", fmt.Errorf("resolving user cache dir: %w", err)
 	}

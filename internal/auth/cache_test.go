@@ -10,6 +10,17 @@ import (
 	"time"
 )
 
+// swapCacheDir redirects cacheDirFn to a fresh per-test tmpdir and returns
+// the path. Cleaned up automatically via t.Cleanup.
+func swapCacheDir(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	prev := cacheDirFn
+	cacheDirFn = func() (string, error) { return dir, nil }
+	t.Cleanup(func() { cacheDirFn = prev })
+	return dir
+}
+
 func TestWriteThenRead_RoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "iam-token.json")

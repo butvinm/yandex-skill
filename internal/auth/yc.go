@@ -4,9 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
+
+var nowFn = time.Now
 
 type ycExecutor interface {
 	runYC(ctx context.Context) ([]byte, error)
@@ -34,6 +38,35 @@ func fetchYCToken(ctx context.Context) (string, error) {
 	tok := strings.TrimSpace(string(out))
 	if tok == "" {
 		return "", errors.New("yc iam create-token returned empty output")
+	}
+	return tok, nil
+}
+
+// loadYCToken returns an IAM token, preferring a fresh on-disk cache and
+// falling back to `yc iam create-token`. Cache I/O failures are logged but
+// non-fatal: we always return a usable token if `yc` succeeds.
+func loadYCToken(ctx context.Context) (string, error) {
+	cachePath, pathErr := cacheFilePath()
+	if pathErr == nil {
+		if ct, err := readCachedToken(cachePath); err == nil {
+			period := parseRefreshPeriod(os.Getenv(envRefreshPeriod))
+			if ct.isFresh(period, nowFn()) {
+				return ct.Token, nil
+			}
+		}
+	}
+
+	tok, err := fetchYCToken(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	if pathErr != nil {
+		fmt.Fprintf(os.Stderr, "yandex-cli: skipping IAM token cache: %v\n", pathErr)
+		return tok, nil
+	}
+	if writeErr := writeCachedToken(cachePath, cachedToken{Token: tok, AcquiredAt: nowFn()}); writeErr != nil {
+		fmt.Fprintf(os.Stderr, "yandex-cli: failed to write IAM token cache: %v\n", writeErr)
 	}
 	return tok, nil
 }

@@ -74,7 +74,7 @@ func Load() (Config, error) {
 			return Config{}, errors.New(envToken + " not set; for 360, get an OAuth token at oauth.yandex.com")
 		}
 		if os.Getenv(envUseYC) == "1" {
-			tok, err := fetchYCToken(context.Background())
+			tok, err := loadYCToken(context.Background())
 			if err != nil {
 				return Config{}, fmt.Errorf("%s unset and yc fallback failed: %w", envToken, err)
 			}
