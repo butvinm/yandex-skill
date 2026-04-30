@@ -128,6 +128,30 @@ func TestWrite_OverwritesAtomically(t *testing.T) {
 	}
 }
 
+func TestParseRefreshPeriod(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want time.Duration
+	}{
+		{"empty defaults to 10h", "", 10 * time.Hour},
+		{"valid 5", "5", 5 * time.Hour},
+		{"valid 12 (max)", "12", 12 * time.Hour},
+		{"clamps over 12", "100", 12 * time.Hour},
+		{"zero falls back", "0", 10 * time.Hour},
+		{"negative falls back", "-3", 10 * time.Hour},
+		{"non-numeric falls back", "abc", 10 * time.Hour},
+		{"trailing-h falls back", "12h", 10 * time.Hour},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := parseRefreshPeriod(tt.in); got != tt.want {
+				t.Errorf("parseRefreshPeriod(%q) = %v, want %v", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestIsFresh(t *testing.T) {
 	now := time.Date(2026, 4, 30, 12, 0, 0, 0, time.UTC)
 	tests := []struct {

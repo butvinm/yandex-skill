@@ -6,8 +6,35 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 )
+
+const (
+	envRefreshPeriod    = "YANDEX_IAM_TOKEN_REFRESH_PERIOD"
+	defaultRefreshHours = 10
+	maxRefreshHours     = 12
+)
+
+// parseRefreshPeriod converts an env-var string into a refresh duration.
+// Empty, malformed, or non-positive values fall back to the default. Values
+// above maxRefreshHours are clamped to maxRefreshHours (Yandex IAM tokens
+// expire at 12h; clamping protects against typos that would otherwise let
+// the cache outlive the token). Errors are intentionally swallowed: a typo
+// in this knob should not break every CLI invocation.
+func parseRefreshPeriod(envValue string) time.Duration {
+	if envValue == "" {
+		return defaultRefreshHours * time.Hour
+	}
+	hours, err := strconv.Atoi(envValue)
+	if err != nil || hours <= 0 {
+		return defaultRefreshHours * time.Hour
+	}
+	if hours > maxRefreshHours {
+		hours = maxRefreshHours
+	}
+	return time.Duration(hours) * time.Hour
+}
 
 type cachedToken struct {
 	Token      string    `json:"token"`
