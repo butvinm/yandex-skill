@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -16,6 +17,7 @@ const (
 	envOrgID          = "YANDEX_ORG_ID"       // presence implies 360 tenancy
 	envTrackerBaseURL = "YANDEX_TRACKER_BASE_URL"
 	envWikiBaseURL    = "YANDEX_WIKI_BASE_URL"
+	envUseYC          = "YANDEX_USE_YC" // opt-in: when "1", run `yc iam create-token` if YANDEX_TOKEN is unset (Cloud only)
 )
 
 type Tenancy string
@@ -71,7 +73,15 @@ func Load() (Config, error) {
 		if tenancy == Y360 {
 			return Config{}, errors.New(envToken + " not set; for 360, get an OAuth token at oauth.yandex.com")
 		}
-		return Config{}, errors.New(envToken + " not set; run: export " + envToken + "=$(yc iam create-token)")
+		if os.Getenv(envUseYC) == "1" {
+			tok, err := fetchYCToken(context.Background())
+			if err != nil {
+				return Config{}, fmt.Errorf("%s unset and yc fallback failed: %w", envToken, err)
+			}
+			c.Token = tok
+		} else {
+			return Config{}, errors.New(envToken + " not set; run: export " + envToken + "=$(yc iam create-token), or set " + envUseYC + "=1 to call yc automatically")
+		}
 	}
 	return c, nil
 }
