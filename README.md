@@ -45,12 +45,12 @@ For how to obtain tokens and find your organization id, see the official docs: [
 
 Once you have a token and org id, set the env vars below (full list under [Configuration](#environment-variables)). Which org-id var you set selects the organization type:
 
-- `YANDEX_CLI_CLOUD_ORG_ID` → **Yandex Cloud organization** (expects an IAM token in `YANDEX_CLI_TOKEN`)
-- `YANDEX_CLI_ORG_ID` → **Yandex 360 for Business** (expects an OAuth token in `YANDEX_CLI_TOKEN`)
+- `YANDEX_CLOUD_ORG_ID` → **Yandex Cloud organization** (expects an IAM token in `YANDEX_TOKEN`)
+- `YANDEX_ORG_ID` → **Yandex 360 for Business** (expects an OAuth token in `YANDEX_TOKEN`)
 
 Set exactly one — both at once is rejected.
 
-For Yandex Cloud, you can let the CLI mint an IAM token automatically by opting in to the `yc` fallback: set `YANDEX_CLI_USE_YC=1` and leave `YANDEX_CLI_TOKEN` unset. The binary will run `yc iam create-token` on each invocation — requires the [Yandex Cloud CLI](https://yandex.cloud/en/docs/cli/quickstart) on `PATH` and an initialized profile (`yc init`). 360 tenancies are unaffected (yc cannot mint OAuth tokens).
+For Yandex Cloud, you can let the CLI mint an IAM token automatically by opting in to the `yc` fallback: set `YANDEX_USE_YC=1` and leave `YANDEX_TOKEN` unset. The binary will run `yc iam create-token` on each invocation — requires the [Yandex Cloud CLI](https://yandex.cloud/en/docs/cli/quickstart) on `PATH` and an initialized profile (`yc init`). 360 tenancies are unaffected (yc cannot mint OAuth tokens).
 
 ### Verify
 
@@ -67,12 +67,12 @@ From Claude Code, ask: _"list my Yandex Tracker queues"_ — Claude should auto-
 
 | Variable                      | Required                                    | Notes                                                                                                    |
 | ----------------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `YANDEX_CLI_TOKEN`            | yes (unless `YANDEX_CLI_USE_YC=1` on Cloud) | IAM token (Yandex Cloud) or OAuth token (Yandex 360)                                                     |
-| `YANDEX_CLI_CLOUD_ORG_ID`     | one of these is needed                      | Yandex Cloud organization id; presence selects this org type                                             |
-| `YANDEX_CLI_ORG_ID`           | one of these is needed                      | Yandex 360 for Business organization id; presence selects this                                           |
-| `YANDEX_CLI_USE_YC`           | no                                          | Set to `1` (Cloud only) to fetch an IAM token via `yc iam create-token` when `YANDEX_CLI_TOKEN` is unset |
-| `YANDEX_CLI_TRACKER_BASE_URL` | no                                          | Default: `https://api.tracker.yandex.net`                                                                |
-| `YANDEX_CLI_WIKI_BASE_URL`    | no                                          | Default: `https://api.wiki.yandex.net`                                                                   |
+| `YANDEX_TOKEN`            | yes (unless `YANDEX_USE_YC=1` on Cloud) | IAM token (Yandex Cloud) or OAuth token (Yandex 360)                                                     |
+| `YANDEX_CLOUD_ORG_ID`     | one of these is needed                      | Yandex Cloud organization id; presence selects this org type                                             |
+| `YANDEX_ORG_ID`           | one of these is needed                      | Yandex 360 for Business organization id; presence selects this                                           |
+| `YANDEX_USE_YC`           | no                                          | Set to `1` (Cloud only) to fetch an IAM token via `yc iam create-token` when `YANDEX_TOKEN` is unset |
+| `YANDEX_TRACKER_BASE_URL` | no                                          | Default: `https://api.tracker.yandex.net`                                                                |
+| `YANDEX_WIKI_BASE_URL`    | no                                          | Default: `https://api.wiki.yandex.net`                                                                   |
 
 ## Output
 
