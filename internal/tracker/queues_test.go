@@ -63,3 +63,30 @@ func TestListQueues(t *testing.T) {
 		t.Errorf("got = %+v", got)
 	}
 }
+
+func TestListQueues_Paginates(t *testing.T) {
+	var srv *httptest.Server
+	calls := 0
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		if calls == 1 {
+			w.Header().Set("Link", `<`+srv.URL+`/v3/queues/?page=2>; rel="next"`)
+			_, _ = io.WriteString(w, `[{"key":"A","name":"Alpha"}]`)
+			return
+		}
+		_, _ = io.WriteString(w, `[{"key":"B","name":"Beta"}]`)
+	}))
+	defer srv.Close()
+	c := New(auth.Config{Token: "t", OrgID: "o", TrackerBaseURL: srv.URL})
+
+	got, err := c.ListQueues(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 2 {
+		t.Errorf("calls = %d, want 2", calls)
+	}
+	if len(got) != 2 || got[0].Key != "A" || got[1].Key != "B" {
+		t.Errorf("got = %+v", got)
+	}
+}

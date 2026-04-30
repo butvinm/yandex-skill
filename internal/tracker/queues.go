@@ -2,6 +2,8 @@ package tracker
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/butvinm/yandex-skill/internal/render"
@@ -34,10 +36,17 @@ func (c *Client) GetQueue(ctx context.Context, key string) (*Queue, error) {
 }
 
 func (c *Client) ListQueues(ctx context.Context) ([]Queue, error) {
-	var out []Queue
-	_, err := c.Do(ctx, http.MethodGet, "/v3/queues/", nil, &out)
+	var all []Queue
+	err := c.DoPaginated(ctx, "/v3/queues/", nil, func(raw []byte) error {
+		var batch []Queue
+		if err := json.Unmarshal(raw, &batch); err != nil {
+			return fmt.Errorf("decode queues page: %w", err)
+		}
+		all = append(all, batch...)
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	return all, nil
 }
