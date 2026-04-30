@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/butvinm/yandex-cli/internal/auth"
+	"github.com/butvinm/yandex-skill/internal/auth"
 )
 
 func newWiki(t *testing.T, h http.HandlerFunc) (*Client, *httptest.Server) {

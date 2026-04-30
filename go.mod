@@ -1,4 +1,4 @@
-module github.com/butvinm/yandex-cli
+module github.com/butvinm/yandex-skill
 
 go 1.22
 

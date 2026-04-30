@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/butvinm/yandex-cli/internal/auth"
+	"github.com/butvinm/yandex-skill/internal/auth"
 )
 
 func TestClient_Do_HeadersIncludeCloudOrgID(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/butvinm/yandex-cli/internal/auth"
+	"github.com/butvinm/yandex-skill/internal/auth"
 )
 
 func newTestClient(t *testing.T, handler http.HandlerFunc) (*Client, *httptest.Server) {

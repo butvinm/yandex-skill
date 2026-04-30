@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/butvinm/yandex-cli/internal/auth"
+	"github.com/butvinm/yandex-skill/internal/auth"
 )
 
 func TestQueue_Plain(t *testing.T) {

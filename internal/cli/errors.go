@@ -3,8 +3,8 @@ package cli
 import (
 	"errors"
 
-	"github.com/butvinm/yandex-cli/internal/tracker"
-	"github.com/butvinm/yandex-cli/internal/wiki"
+	"github.com/butvinm/yandex-skill/internal/tracker"
+	"github.com/butvinm/yandex-skill/internal/wiki"
 )
 
 func statusFromErr(err error) int {

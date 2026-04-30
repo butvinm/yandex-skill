@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/butvinm/yandex-cli/internal/render"
+	"github.com/butvinm/yandex-skill/internal/render"
 )
 
 type PageAttrs struct {

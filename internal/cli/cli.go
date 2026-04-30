@@ -7,10 +7,10 @@ import (
 
 	"github.com/alecthomas/kong"
 
-	"github.com/butvinm/yandex-cli/internal/auth"
-	"github.com/butvinm/yandex-cli/internal/render"
-	"github.com/butvinm/yandex-cli/internal/tracker"
-	"github.com/butvinm/yandex-cli/internal/wiki"
+	"github.com/butvinm/yandex-skill/internal/auth"
+	"github.com/butvinm/yandex-skill/internal/render"
+	"github.com/butvinm/yandex-skill/internal/tracker"
+	"github.com/butvinm/yandex-skill/internal/wiki"
 )
 
 // Globals carries cross-command state injected via kong.Bind.

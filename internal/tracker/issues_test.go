@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/butvinm/yandex-cli/internal/auth"
+	"github.com/butvinm/yandex-skill/internal/auth"
 )
 
 func TestIssue_Plain(t *testing.T) {

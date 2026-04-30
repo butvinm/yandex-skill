@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/butvinm/yandex-cli/internal/auth"
+	"github.com/butvinm/yandex-skill/internal/auth"
 )
 
 type Client struct {

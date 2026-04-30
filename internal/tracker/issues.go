@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/butvinm/yandex-cli/internal/render"
+	"github.com/butvinm/yandex-skill/internal/render"
 )
 
 type Display struct {
