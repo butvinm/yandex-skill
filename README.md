@@ -56,55 +56,14 @@ From Claude Code, ask: _"list my Yandex Tracker queues"_ — Claude should auto-
 
 ## Auth setup
 
-The CLI follows the auth model documented at [Yandex Tracker → API access](https://yandex.ru/support/tracker/en/api-ref/access). Two organization types are supported, selected by which org-id env var you set:
+For how to obtain tokens and find your organization id, see the official docs: [Yandex Tracker → API access](https://yandex.ru/support/tracker/en/api-ref/access).
 
-- `YANDEX_CLOUD_ORG_ID` set → **Yandex Cloud organization** (IAM token, `X-Cloud-Org-Id` header)
-- `YANDEX_ORG_ID` set → **Yandex 360 for Business** (OAuth token, `X-Org-Id` header)
+Once you have a token and org id, set the env vars below. Which org-id var you set selects the organization type:
+
+- `YANDEX_CLOUD_ORG_ID` → **Yandex Cloud organization** (expects an IAM token in `YANDEX_TOKEN`)
+- `YANDEX_ORG_ID` → **Yandex 360 for Business** (expects an OAuth token in `YANDEX_TOKEN`)
 
 Set exactly one — both at once is rejected.
-
-### Yandex Cloud organization (IAM token via `yc`)
-
-1. Install [`yc`](https://yandex.cloud/en/docs/cli/quickstart) and authenticate:
-
-   ```sh
-   yc init
-   ```
-
-2. Find your Yandex Cloud organization id and export it (e.g. in `~/.zshrc`):
-
-   ```sh
-   export YANDEX_CLOUD_ORG_ID=$(yc organization-manager organization list --format json | jq -r '.[0].id')
-   ```
-
-3. Per session, refresh the IAM token:
-
-   ```sh
-   export YANDEX_TOKEN=$(yc iam create-token)
-   ```
-
-   IAM tokens last at most 12 hours ([source](https://yandex.cloud/en/docs/iam/operations/iam-token/create-for-sa)). They carry your full account permissions; they are not scope-limited.
-
-### Yandex 360 for Business (OAuth token)
-
-1. Get an OAuth token:
-   - Register an app at [oauth.yandex.com](https://oauth.yandex.com/) (one-time)
-   - Pick scopes: `tracker:read` for Tracker; `wiki:read` and `wiki:write` for Wiki
-   - Visit `https://oauth.yandex.com/authorize?response_type=token&client_id=<your-client-id>` in a browser
-   - Copy the token from the redirect URL fragment
-   - Export it:
-
-   ```sh
-   export YANDEX_TOKEN=<oauth-token>
-   ```
-
-   OAuth tokens last ≥1 year and respect the scopes you selected at app registration.
-
-2. Find your Yandex 360 for Business organization id at **Yandex Tracker → Administration → Organizations** ([source](https://yandex.ru/support/tracker/en/api-ref/access)) and export:
-
-   ```sh
-   export YANDEX_ORG_ID=<your-360-org-id>
-   ```
 
 ## Environment variables
 
