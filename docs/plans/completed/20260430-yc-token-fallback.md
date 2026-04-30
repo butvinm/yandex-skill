@@ -59,12 +59,12 @@ Integrates as a small additive change in `internal/auth/`. The CLI Run pattern (
 - Create: `internal/auth/yc.go`
 - Create: `internal/auth/yc_test.go`
 
-- [ ] in `internal/auth/yc.go`, define unexported interface `ycExecutor { runYC(ctx context.Context) ([]byte, error) }` and a default impl `realYCExecutor{}` that calls `exec.CommandContext(ctx, "yc", "iam", "create-token").Output()`
-- [ ] add package-level `var ycExec ycExecutor = realYCExecutor{}` so tests can swap it
-- [ ] add `func fetchYCToken(ctx context.Context) (string, error)` that calls `ycExec.runYC`, returns `strings.TrimSpace(string(out))`; on `*exec.ExitError`, include `strings.TrimSpace(string(ee.Stderr))` in the error so users see why `yc` failed; on empty-after-trim, return a distinct error
-- [ ] in `internal/auth/yc_test.go`, write a fake executor (struct with `outFn func() ([]byte, error)`) and table tests covering: success (returns token), exit-error with stderr (error message contains stderr text), unknown error (e.g. `exec.ErrNotFound`-style), empty stdout (error mentions empty output)
-- [ ] each test saves `prev := ycExec`, swaps in the fake, defers restore — no global leakage between tests
-- [ ] run `go test ./internal/auth/...` and `go vet ./...` — must pass before Task 2
+- [x] in `internal/auth/yc.go`, define unexported interface `ycExecutor { runYC(ctx context.Context) ([]byte, error) }` and a default impl `realYCExecutor{}` that calls `exec.CommandContext(ctx, "yc", "iam", "create-token").Output()`
+- [x] add package-level `var ycExec ycExecutor = realYCExecutor{}` so tests can swap it
+- [x] add `func fetchYCToken(ctx context.Context) (string, error)` that calls `ycExec.runYC`, returns `strings.TrimSpace(string(out))`; on `*exec.ExitError`, include `strings.TrimSpace(string(ee.Stderr))` in the error so users see why `yc` failed; on empty-after-trim, return a distinct error
+- [x] in `internal/auth/yc_test.go`, write a fake executor (struct with `outFn func() ([]byte, error)`) and table tests covering: success (returns token), exit-error with stderr (error message contains stderr text), unknown error (e.g. `exec.ErrNotFound`-style), empty stdout (error mentions empty output)
+- [x] each test saves `prev := ycExec`, swaps in the fake, defers restore — no global leakage between tests
+- [x] run `go test ./internal/auth/...` and `go vet ./...` — must pass before Task 2
 
 ### Task 2: Wire opt-in fallback into `auth.Load`
 
@@ -73,16 +73,16 @@ Integrates as a small additive change in `internal/auth/`. The CLI Run pattern (
 - Modify: `internal/auth/auth.go`
 - Modify: `internal/auth/auth_test.go`
 
-- [ ] in `auth.go`, add constant `envUseYC = "YANDEX_USE_YC"` near the other env-var constants
-- [ ] in `Load()`, in the existing `if c.Token == ""` block: keep the 360 branch unchanged; in the Cloud branch, if `os.Getenv(envUseYC) == "1"`, call `fetchYCToken(context.Background())` — on success set `c.Token` and continue; on error wrap as `fmt.Errorf("%s unset and yc fallback failed: %w", envToken, err)` so the user sees both why fallback was attempted and what `yc` reported
-- [ ] keep the existing "run: export YANDEX_TOKEN=$(yc iam create-token)" hint when `YANDEX_USE_YC` is _not_ set (current behavior preserved verbatim)
-- [ ] in `auth_test.go`, add test cases (each saves/restores `ycExec`):
+- [x] in `auth.go`, add constant `envUseYC = "YANDEX_USE_YC"` near the other env-var constants
+- [x] in `Load()`, in the existing `if c.Token == ""` block: keep the 360 branch unchanged; in the Cloud branch, if `os.Getenv(envUseYC) == "1"`, call `fetchYCToken(context.Background())` — on success set `c.Token` and continue; on error wrap as `fmt.Errorf("%s unset and yc fallback failed: %w", envToken, err)` so the user sees both why fallback was attempted and what `yc` reported
+- [x] keep the existing "run: export YANDEX_TOKEN=$(yc iam create-token)" hint when `YANDEX_USE_YC` is _not_ set (current behavior preserved verbatim)
+- [x] in `auth_test.go`, add test cases (each saves/restores `ycExec`):
   - Cloud + `YANDEX_TOKEN=""` + `YANDEX_USE_YC` unset → existing error returned (regression guard)
   - Cloud + `YANDEX_TOKEN=""` + `YANDEX_USE_YC=1` + fake exec returns `"t1.abc\n"` → `c.Token == "t1.abc"`, no error
   - Cloud + `YANDEX_TOKEN=""` + `YANDEX_USE_YC=1` + fake exec returns error → `Load` returns wrapped error mentioning `yc fallback failed`
   - 360 + `YANDEX_TOKEN=""` + `YANDEX_USE_YC=1` → still returns the existing 360-OAuth error (yc must NOT be invoked); assert the fake executor was not called
   - Cloud + `YANDEX_TOKEN="t1.x"` + `YANDEX_USE_YC=1` → user-set token wins, fake executor not called
-- [ ] run `go test ./...` and `go vet ./...` — must pass before Task 3
+- [x] run `go test ./...` and `go vet ./...` — must pass before Task 3
 
 ### Task 3: Document the env var
 
@@ -91,17 +91,17 @@ Integrates as a small additive change in `internal/auth/`. The CLI Run pattern (
 - Modify: `README.md`
 - Modify: `CLAUDE.md` (only if a non-obvious convention emerged)
 
-- [ ] add `YANDEX_USE_YC` to the env-var section of README with a one-paragraph note: opt-in, Cloud-only, requires `yc` on PATH and an initialized profile, mention that the existing manual approach still works
-- [ ] only update `CLAUDE.md` if a new project convention was introduced (e.g. test-time executor swapping) that future contributors need to know — otherwise leave it alone (the file is intentionally terse)
-- [ ] run `go test ./...` once more end-to-end
+- [x] add `YANDEX_USE_YC` to the env-var section of README with a one-paragraph note: opt-in, Cloud-only, requires `yc` on PATH and an initialized profile, mention that the existing manual approach still works
+- [x] only update `CLAUDE.md` if a new project convention was introduced (e.g. test-time executor swapping) that future contributors need to know — otherwise leave it alone (the file is intentionally terse)
+- [x] run `go test ./...` once more end-to-end
 
 ### Task 4: Verify acceptance criteria
 
-- [ ] `YANDEX_USE_YC` unset → all existing tests still pass (no regression)
-- [ ] `YANDEX_USE_YC=1` + Cloud + no `YANDEX_TOKEN` → `Load()` returns a populated config when fake yc returns a token
-- [ ] `YANDEX_USE_YC=1` + 360 → 360 OAuth error, `yc` not invoked
-- [ ] `go vet ./...` clean, `go test ./...` green
-- [ ] move this plan to `docs/plans/completed/` (`mkdir -p` not needed — directory exists)
+- [x] `YANDEX_USE_YC` unset → all existing tests still pass (no regression)
+- [x] `YANDEX_USE_YC=1` + Cloud + no `YANDEX_TOKEN` → `Load()` returns a populated config when fake yc returns a token
+- [x] `YANDEX_USE_YC=1` + 360 → 360 OAuth error, `yc` not invoked
+- [x] `go vet ./...` clean, `go test ./...` green
+- [x] move this plan to `docs/plans/completed/` (`mkdir -p` not needed — directory exists)
 
 ## Technical Details
 
