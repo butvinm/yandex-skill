@@ -65,14 +65,14 @@ From Claude Code, ask: _"list my Yandex Tracker queues"_ — Claude should auto-
 
 ## Configuration
 
-| Variable                      | Required                                    | Default                          | Notes                                                                                                    |
-| ----------------------------- | ------------------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `YANDEX_CLI_TOKEN`            | yes (unless `YANDEX_CLI_USE_YC=1` on Cloud) | —                                | IAM token (Yandex Cloud) or OAuth token (Yandex 360)                                                     |
-| `YANDEX_CLI_CLOUD_ORG_ID`     | one of these is needed                      | —                                | Yandex Cloud organization id; presence selects this org type                                             |
-| `YANDEX_CLI_ORG_ID`           | one of these is needed                      | —                                | Yandex 360 for Business organization id; presence selects this                                           |
-| `YANDEX_CLI_USE_YC`           | no                                          | unset                            | Set to `1` (Cloud only) to fetch an IAM token via `yc iam create-token` when `YANDEX_CLI_TOKEN` is unset |
-| `YANDEX_CLI_TRACKER_BASE_URL` | no                                          | `https://api.tracker.yandex.net` |                                                                                                          |
-| `YANDEX_CLI_WIKI_BASE_URL`    | no                                          | `https://api.wiki.yandex.net`    |                                                                                                          |
+| Variable                      | Required                                    | Notes                                                                                                    |
+| ----------------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `YANDEX_CLI_TOKEN`            | yes (unless `YANDEX_CLI_USE_YC=1` on Cloud) | IAM token (Yandex Cloud) or OAuth token (Yandex 360)                                                     |
+| `YANDEX_CLI_CLOUD_ORG_ID`     | one of these is needed                      | Yandex Cloud organization id; presence selects this org type                                             |
+| `YANDEX_CLI_ORG_ID`           | one of these is needed                      | Yandex 360 for Business organization id; presence selects this                                           |
+| `YANDEX_CLI_USE_YC`           | no                                          | Set to `1` (Cloud only) to fetch an IAM token via `yc iam create-token` when `YANDEX_CLI_TOKEN` is unset |
+| `YANDEX_CLI_TRACKER_BASE_URL` | no                                          | Default: `https://api.tracker.yandex.net`                                                                |
+| `YANDEX_CLI_WIKI_BASE_URL`    | no                                          | Default: `https://api.wiki.yandex.net`                                                                   |
 
 ## Output
 
