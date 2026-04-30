@@ -11,9 +11,9 @@ This skill exposes 8 commands via the `yandex-cli` binary (must be on PATH).
 
 These environment variables must be set in the user's shell:
 
-- `YANDEX_TOKEN` — IAM token (Yandex Cloud) or OAuth token (Yandex 360)
-- `YANDEX_CLOUD_ORG_ID` — set this for a Yandex Cloud organization; OR
-- `YANDEX_ORG_ID` — set this for Yandex 360 for Business
+- `YANDEX_CLI_TOKEN` — IAM token (Yandex Cloud) or OAuth token (Yandex 360)
+- `YANDEX_CLI_CLOUD_ORG_ID` — set this for a Yandex Cloud organization; OR
+- `YANDEX_CLI_ORG_ID` — set this for Yandex 360 for Business
 
 Organization type is inferred from which org-id var is set. Set exactly one.
 See [Yandex Tracker → API access](https://yandex.ru/support/tracker/en/api-ref/access) for the underlying auth model.

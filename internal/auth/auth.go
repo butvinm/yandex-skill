@@ -12,12 +12,12 @@ const (
 	defaultTrackerBaseURL = "https://api.tracker.yandex.net"
 	defaultWikiBaseURL    = "https://api.wiki.yandex.net"
 
-	envToken          = "YANDEX_TOKEN"
-	envCloudOrgID     = "YANDEX_CLOUD_ORG_ID" // presence implies Cloud tenancy
-	envOrgID          = "YANDEX_ORG_ID"       // presence implies 360 tenancy
-	envTrackerBaseURL = "YANDEX_TRACKER_BASE_URL"
-	envWikiBaseURL    = "YANDEX_WIKI_BASE_URL"
-	envUseYC          = "YANDEX_USE_YC" // opt-in: when "1", run `yc iam create-token` if YANDEX_TOKEN is unset (Cloud only)
+	envToken          = "YANDEX_CLI_TOKEN"
+	envCloudOrgID     = "YANDEX_CLI_CLOUD_ORG_ID" // presence implies Cloud tenancy
+	envOrgID          = "YANDEX_CLI_ORG_ID"       // presence implies 360 tenancy
+	envTrackerBaseURL = "YANDEX_CLI_TRACKER_BASE_URL"
+	envWikiBaseURL    = "YANDEX_CLI_WIKI_BASE_URL"
+	envUseYC          = "YANDEX_CLI_USE_YC" // opt-in: when "1", run `yc iam create-token` if YANDEX_CLI_TOKEN is unset (Cloud only)
 )
 
 type Tenancy string

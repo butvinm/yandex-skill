@@ -57,14 +57,14 @@ func TestRequiredArgsValidated(t *testing.T) {
 
 func TestAuthErrorPropagates(t *testing.T) {
 	// only token set, no org var → Load() should fail with the no-org-var hint
-	t.Setenv("YANDEX_TOKEN", "tok")
-	t.Setenv("YANDEX_CLOUD_ORG_ID", "")
-	t.Setenv("YANDEX_ORG_ID", "")
+	t.Setenv("YANDEX_CLI_TOKEN", "tok")
+	t.Setenv("YANDEX_CLI_CLOUD_ORG_ID", "")
+	t.Setenv("YANDEX_CLI_ORG_ID", "")
 	_, stderr, exit := runCLI(t, nil, "tracker", "queues", "list")
 	if exit != 1 {
 		t.Errorf("exit = %d", exit)
 	}
-	if !strings.Contains(stderr, "YANDEX_CLOUD_ORG_ID") || !strings.Contains(stderr, "YANDEX_ORG_ID") {
+	if !strings.Contains(stderr, "YANDEX_CLI_CLOUD_ORG_ID") || !strings.Contains(stderr, "YANDEX_CLI_ORG_ID") {
 		t.Errorf("stderr should name both vars: %q", stderr)
 	}
 }
@@ -92,8 +92,8 @@ func TestParseAllCommandShapes(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("YANDEX_TOKEN", "")
-			t.Setenv("YANDEX_CLOUD_ORG_ID", "")
+			t.Setenv("YANDEX_CLI_TOKEN", "")
+			t.Setenv("YANDEX_CLI_CLOUD_ORG_ID", "")
 			_, _, exit := runCLI(t, nil, tt.args...)
 			if exit != tt.expect {
 				t.Errorf("exit = %d, want %d", exit, tt.expect)

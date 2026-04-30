@@ -27,9 +27,9 @@ func TestE2E_TrackerIssuesGet_Plain(t *testing.T) {
 	defer srv.Close()
 
 	stdout, stderr, exit := runWithEnv(t, map[string]string{
-		"YANDEX_TOKEN":            "tok",
-		"YANDEX_CLOUD_ORG_ID":     "org",
-		"YANDEX_TRACKER_BASE_URL": srv.URL,
+		"YANDEX_CLI_TOKEN":            "tok",
+		"YANDEX_CLI_CLOUD_ORG_ID":     "org",
+		"YANDEX_CLI_TRACKER_BASE_URL": srv.URL,
 	}, "", "tracker", "issues", "get", "FOO-1")
 
 	if exit != 0 {
@@ -48,9 +48,9 @@ func TestE2E_TrackerIssuesGet_JSON(t *testing.T) {
 	defer srv.Close()
 
 	stdout, _, exit := runWithEnv(t, map[string]string{
-		"YANDEX_TOKEN":            "tok",
-		"YANDEX_CLOUD_ORG_ID":     "org",
-		"YANDEX_TRACKER_BASE_URL": srv.URL,
+		"YANDEX_CLI_TOKEN":            "tok",
+		"YANDEX_CLI_CLOUD_ORG_ID":     "org",
+		"YANDEX_CLI_TRACKER_BASE_URL": srv.URL,
 	}, "", "--json", "tracker", "issues", "get", "FOO-1")
 
 	if exit != 0 {
@@ -74,9 +74,9 @@ func TestE2E_TrackerIssuesList_Plain(t *testing.T) {
 	defer srv.Close()
 
 	stdout, stderr, exit := runWithEnv(t, map[string]string{
-		"YANDEX_TOKEN":            "tok",
-		"YANDEX_CLOUD_ORG_ID":     "org",
-		"YANDEX_TRACKER_BASE_URL": srv.URL,
+		"YANDEX_CLI_TOKEN":            "tok",
+		"YANDEX_CLI_CLOUD_ORG_ID":     "org",
+		"YANDEX_CLI_TRACKER_BASE_URL": srv.URL,
 	}, "", "tracker", "issues", "list", "--queue", "FOO")
 
 	if exit != 0 {
@@ -98,9 +98,9 @@ func TestE2E_WikiPagesGet_Plain(t *testing.T) {
 	defer srv.Close()
 
 	stdout, _, exit := runWithEnv(t, map[string]string{
-		"YANDEX_TOKEN":         "tok",
-		"YANDEX_CLOUD_ORG_ID":  "org",
-		"YANDEX_WIKI_BASE_URL": srv.URL,
+		"YANDEX_CLI_TOKEN":         "tok",
+		"YANDEX_CLI_CLOUD_ORG_ID":  "org",
+		"YANDEX_CLI_WIKI_BASE_URL": srv.URL,
 	}, "", "wiki", "pages", "get", "team/notes")
 
 	if exit != 0 {
@@ -125,9 +125,9 @@ func TestE2E_WikiPagesCreate_FromBodyFlag(t *testing.T) {
 	defer srv.Close()
 
 	stdout, _, exit := runWithEnv(t, map[string]string{
-		"YANDEX_TOKEN":         "tok",
-		"YANDEX_CLOUD_ORG_ID":  "org",
-		"YANDEX_WIKI_BASE_URL": srv.URL,
+		"YANDEX_CLI_TOKEN":         "tok",
+		"YANDEX_CLI_CLOUD_ORG_ID":  "org",
+		"YANDEX_CLI_WIKI_BASE_URL": srv.URL,
 	}, "", "wiki", "pages", "create", "--slug", "team/new", "--title", "T", "--body", "hello world")
 
 	if exit != 0 {
@@ -151,9 +151,9 @@ func TestE2E_WikiPagesCreate_FromStdin(t *testing.T) {
 	defer srv.Close()
 
 	_, _, exit := runWithEnv(t, map[string]string{
-		"YANDEX_TOKEN":         "tok",
-		"YANDEX_CLOUD_ORG_ID":  "org",
-		"YANDEX_WIKI_BASE_URL": srv.URL,
+		"YANDEX_CLI_TOKEN":         "tok",
+		"YANDEX_CLI_CLOUD_ORG_ID":  "org",
+		"YANDEX_CLI_WIKI_BASE_URL": srv.URL,
 	}, "draft from stdin", "wiki", "pages", "create", "--slug", "x", "--title", "T", "--body-file", "-")
 
 	if exit != 0 {
@@ -172,9 +172,9 @@ func TestE2E_AuthError_404_Plain(t *testing.T) {
 	defer srv.Close()
 
 	_, stderr, exit := runWithEnv(t, map[string]string{
-		"YANDEX_TOKEN":            "tok",
-		"YANDEX_CLOUD_ORG_ID":     "org",
-		"YANDEX_TRACKER_BASE_URL": srv.URL,
+		"YANDEX_CLI_TOKEN":            "tok",
+		"YANDEX_CLI_CLOUD_ORG_ID":     "org",
+		"YANDEX_CLI_TRACKER_BASE_URL": srv.URL,
 	}, "", "tracker", "issues", "get", "X-9")
 
 	if exit != 1 {
@@ -193,9 +193,9 @@ func TestE2E_AuthError_404_JSON(t *testing.T) {
 	defer srv.Close()
 
 	_, stderr, exit := runWithEnv(t, map[string]string{
-		"YANDEX_TOKEN":            "tok",
-		"YANDEX_CLOUD_ORG_ID":     "org",
-		"YANDEX_TRACKER_BASE_URL": srv.URL,
+		"YANDEX_CLI_TOKEN":            "tok",
+		"YANDEX_CLI_CLOUD_ORG_ID":     "org",
+		"YANDEX_CLI_TRACKER_BASE_URL": srv.URL,
 	}, "", "--json", "tracker", "issues", "get", "X-9")
 
 	if exit != 1 {
