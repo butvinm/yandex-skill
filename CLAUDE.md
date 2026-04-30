@@ -47,7 +47,7 @@ Use `render.SkipEmpty` (two-space separator) for inline fields and `render.SkipE
 
 **Errors.** Errors bubble up through `Run` and get formatted by `render.Error`. With `--json` they become `{"error":"...","status":<http>}`. Don't print errors mid-command.
 
-**Auth.** `auth.Load()` reads env vars and returns a `Config`. Tenancy is implicit from which org-id var is set (`YANDEX_CLI_CLOUD_ORG_ID` → Cloud Bearer + `X-Cloud-Org-ID`; `YANDEX_CLI_ORG_ID` → 360 OAuth + `X-Org-ID`). Setting both is rejected. Don't add a tenancy flag — the env-var-presence dispatch is the contract.
+**Auth.** `auth.Load()` reads env vars and returns a `Config`. Tenancy is implicit from which org-id var is set (`YANDEX_CLOUD_ORG_ID` → Cloud Bearer + `X-Cloud-Org-ID`; `YANDEX_ORG_ID` → 360 OAuth + `X-Org-ID`). Setting both is rejected. Don't add a tenancy flag — the env-var-presence dispatch is the contract.
 
 **Commands.** Every command Run method follows the same shape: `auth.Load()` → instantiate client → call client method → `render.One/Many/Confirm`. Match this pattern when adding commands; don't add caching, retries, or progress output.
 
@@ -55,7 +55,7 @@ Use `render.SkipEmpty` (two-space separator) for inline fields and `render.SkipE
 
 ## Testing
 
-Per-package unit tests sit next to source files. End-to-end tests live in `internal/cli/e2e_test.go` and use `httptest.NewServer` with `YANDEX_CLI_TRACKER_BASE_URL` / `YANDEX_CLI_WIKI_BASE_URL` env vars to point the client at the test server. Token/org-id env vars are set per-test via `t.Setenv`.
+Per-package unit tests sit next to source files. End-to-end tests live in `internal/cli/e2e_test.go` and use `httptest.NewServer` with `YANDEX_TRACKER_BASE_URL` / `YANDEX_WIKI_BASE_URL` env vars to point the client at the test server. Token/org-id env vars are set per-test via `t.Setenv`.
 
 When adding a command, add: (1) a unit test for the client method, (2) an e2e test that asserts both plain and JSON output. Plain-output assertions are the only place we pin the exact LLM-facing format — break those carefully.
 
@@ -75,4 +75,4 @@ If a task requires breaking one of these, surface it as a scope question before 
 - Don't `git add .` — stage specific files. Atomic commits.
 - Don't add a Makefile back unless asked; the bare `go` commands are the contract.
 - Don't add comments that restate code. Explain _why_ only when non-obvious.
-- Don't broaden the auth model (no token files, no keyring) without an explicit ask.
+- Don't broaden the auth model (no token files, no keyring) without an explicit ask. The one exception is the IAM token cache at `os.UserCacheDir()/yandex-cli/iam-token.json` (mode 0600), only populated when `YANDEX_USE_YC=1`. Don't extend disk persistence to OAuth tokens, refresh tokens, or org-id without an explicit ask.

@@ -6,7 +6,15 @@ import (
 	"os/exec"
 	"strings"
 	"testing"
+	"time"
 )
+
+func swapNowFn(t *testing.T, now time.Time) {
+	t.Helper()
+	prev := nowFn
+	nowFn = func() time.Time { return now }
+	t.Cleanup(func() { nowFn = prev })
+}
 
 type fakeYCExecutor struct {
 	out    []byte
