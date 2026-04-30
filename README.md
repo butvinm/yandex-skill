@@ -56,14 +56,14 @@ From Claude Code, ask: _"list my Yandex Tracker queues"_ — Claude should auto-
 
 ## Auth setup
 
-The CLI supports both **Yandex Cloud Organization** and **Yandex 360 for Business** tenancies. Tenancy is selected by which org-id env var you set:
+The CLI follows the auth model documented at [Yandex Tracker → API access](https://yandex.ru/support/tracker/en/api-ref/access). Two organization types are supported, selected by which org-id env var you set:
 
-- `YANDEX_CLOUD_ORG_ID` set → Cloud (uses IAM `Bearer` token + `X-Cloud-Org-ID` header)
-- `YANDEX_ORG_ID` set → 360 (uses OAuth token + `X-Org-ID` header)
+- `YANDEX_CLOUD_ORG_ID` set → **Yandex Cloud organization** (IAM token, `X-Cloud-Org-Id` header)
+- `YANDEX_ORG_ID` set → **Yandex 360 for Business** (OAuth token, `X-Org-Id` header)
 
 Set exactly one — both at once is rejected.
 
-### Cloud Organization (IAM token via `yc`)
+### Yandex Cloud organization (IAM token via `yc`)
 
 1. Install [`yc`](https://yandex.cloud/en/docs/cli/quickstart) and authenticate:
 
@@ -71,7 +71,7 @@ Set exactly one — both at once is rejected.
    yc init
    ```
 
-2. Find your Cloud Organization id and export it (e.g. in `~/.zshrc`):
+2. Find your Yandex Cloud organization id and export it (e.g. in `~/.zshrc`):
 
    ```sh
    export YANDEX_CLOUD_ORG_ID=$(yc organization-manager organization list --format json | jq -r '.[0].id')
@@ -100,7 +100,7 @@ Set exactly one — both at once is rejected.
 
    OAuth tokens last ≥1 year and respect the scopes you selected at app registration.
 
-2. Find your 360 organization id at **Yandex Tracker → Administration → Organizations** ([source](https://yandex.ru/support/wiki/en/api-ref/access)) and export:
+2. Find your Yandex 360 for Business organization id at **Yandex Tracker → Administration → Organizations** ([source](https://yandex.ru/support/tracker/en/api-ref/access)) and export:
 
    ```sh
    export YANDEX_ORG_ID=<your-360-org-id>
@@ -108,13 +108,13 @@ Set exactly one — both at once is rejected.
 
 ## Environment variables
 
-| Variable                  | Required               | Default                          | Notes                                            |
-| ------------------------- | ---------------------- | -------------------------------- | ------------------------------------------------ |
-| `YANDEX_TOKEN`            | yes                    | —                                | IAM (Cloud) or OAuth (360)                       |
-| `YANDEX_CLOUD_ORG_ID`     | one of these is needed | —                                | Cloud Organization id; presence selects Cloud    |
-| `YANDEX_ORG_ID`           | one of these is needed | —                                | Yandex 360 organization id; presence selects 360 |
-| `YANDEX_TRACKER_BASE_URL` | no                     | `https://api.tracker.yandex.net` |                                                  |
-| `YANDEX_WIKI_BASE_URL`    | no                     | `https://api.wiki.yandex.net`    |                                                  |
+| Variable                  | Required               | Default                          | Notes                                                          |
+| ------------------------- | ---------------------- | -------------------------------- | -------------------------------------------------------------- |
+| `YANDEX_TOKEN`            | yes                    | —                                | IAM token (Yandex Cloud) or OAuth token (Yandex 360)           |
+| `YANDEX_CLOUD_ORG_ID`     | one of these is needed | —                                | Yandex Cloud organization id; presence selects this org type   |
+| `YANDEX_ORG_ID`           | one of these is needed | —                                | Yandex 360 for Business organization id; presence selects this |
+| `YANDEX_TRACKER_BASE_URL` | no                     | `https://api.tracker.yandex.net` |                                                                |
+| `YANDEX_WIKI_BASE_URL`    | no                     | `https://api.wiki.yandex.net`    |                                                                |
 
 ## Output
 
