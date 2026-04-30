@@ -106,20 +106,20 @@ Both changes contradict explicit decisions made in earlier commits/plans on this
 - Modify: `plugins/yandex/skills/yandex/SKILL.md`
 - Modify: `CLAUDE.md` (if it mentions specific env-var names — check)
 
-- [ ] in `internal/auth/auth.go`, rename constants:
+- [x] in `internal/auth/auth.go`, rename constants:
   - `envToken` value: `YANDEX_CLI_TOKEN` → `YANDEX_TOKEN`
   - `envCloudOrgID` value: `YANDEX_CLI_CLOUD_ORG_ID` → `YANDEX_CLOUD_ORG_ID`
   - `envOrgID` value: `YANDEX_CLI_ORG_ID` → `YANDEX_ORG_ID`
   - `envTrackerBaseURL` value: `YANDEX_CLI_TRACKER_BASE_URL` → `YANDEX_TRACKER_BASE_URL`
   - `envWikiBaseURL` value: `YANDEX_CLI_WIKI_BASE_URL` → `YANDEX_WIKI_BASE_URL`
   - `envUseYC` value: `YANDEX_CLI_USE_YC` → `YANDEX_USE_YC`
-- [ ] update the error message strings in `Load()` that mention the old names verbatim
-- [ ] update all `t.Setenv("YANDEX_CLI_…", …)` calls in `auth_test.go`, `yc_test.go`, `cli_test.go`, `e2e_test.go` to the new names
-- [ ] update `README.md` config table (currently has uncommitted edits — preserve those edits, only swap names)
-- [ ] update `plugins/yandex/skills/yandex/SKILL.md` env var list (currently has uncommitted edits — preserve those edits, only swap names)
-- [ ] grep `YANDEX_CLI_` across the repo (`grep -rn "YANDEX_CLI_" --include="*.go" --include="*.md" .`) — must return zero hits
-- [ ] run `go test ./...` and `go vet ./...` — must pass before Task 2
-- [ ] commit: `refactor(auth)!: align env-var names with yandex-mcp` — message body explains the reversal of `ad5e80f`
+- [x] update the error message strings in `Load()` that mention the old names verbatim
+- [x] update all `t.Setenv("YANDEX_CLI_…", …)` calls in `auth_test.go`, `yc_test.go`, `cli_test.go`, `e2e_test.go` to the new names (yc_test.go had no refs, others updated)
+- [x] update `README.md` config table (preserved earlier polish; swapped names only)
+- [x] update `plugins/yandex/skills/yandex/SKILL.md` env var list (preserved earlier polish; swapped names only)
+- [x] grep `YANDEX_CLI_` across the repo — only the plan file retains references (intentional)
+- [x] run `go test ./...` and `go vet ./...` — passed
+- [x] commit: `da6f82c refactor(auth)!: align env-var names with yandex-mcp (YANDEX_CLI_ → YANDEX_)`
 
 ### Task 2: Add disk cache for IAM token (read/write/expiry)
 
@@ -128,24 +128,25 @@ Both changes contradict explicit decisions made in earlier commits/plans on this
 - Create: `internal/auth/cache.go`
 - Create: `internal/auth/cache_test.go`
 
-- [ ] in `internal/auth/cache.go`, define struct `cachedToken { Token string; AcquiredAt time.Time }` with JSON tags (`acquired_at` for the timestamp field)
-- [ ] add `cacheFilePath() (string, error)` returning `filepath.Join(os.UserCacheDir(), "yandex-cli", "iam-token.json")`. Error wraps `os.UserCacheDir`'s error.
-- [ ] add `readCachedToken(path string) (cachedToken, error)`:
+- [x] in `internal/auth/cache.go`, define struct `cachedToken { Token string; AcquiredAt time.Time }` with JSON tags (`acquired_at` for the timestamp field)
+- [x] add `cacheFilePath() (string, error)` returning `filepath.Join(os.UserCacheDir(), "yandex-cli", "iam-token.json")`. Error wraps `os.UserCacheDir`'s error.
+- [x] add `readCachedToken(path string) (cachedToken, error)`:
   - reads file, json-unmarshals
-  - returns wrapped error on missing file (`os.IsNotExist`-detectable so callers can distinguish), malformed JSON, or empty token field
-- [ ] add `writeCachedToken(path string, ct cachedToken) error`:
+  - returns wrapped error on missing file (`fs.ErrNotExist`-detectable via `errors.Is`), malformed JSON, or empty token field
+- [x] add `writeCachedToken(path string, ct cachedToken) error`:
   - `os.MkdirAll(filepath.Dir(path), 0700)`
   - write to `path + ".tmp"` with mode `0600`, then `os.Rename` to `path` for atomicity
   - returns wrapped error on any failure
-- [ ] add `func (ct cachedToken) isFresh(refreshPeriod time.Duration, now time.Time) bool` — returns `now.Sub(ct.AcquiredAt) < refreshPeriod`
-- [ ] in `cache_test.go`, table tests using `t.TempDir()` for path isolation:
+- [x] add `func (ct cachedToken) isFresh(refreshPeriod time.Duration, now time.Time) bool` — returns `now.Sub(ct.AcquiredAt) < refreshPeriod`
+- [x] in `cache_test.go`, table tests using `t.TempDir()` for path isolation:
   - `writeCachedToken` then `readCachedToken` round-trips
-  - `readCachedToken` on missing file returns error matching `os.IsNotExist`
+  - `readCachedToken` on missing file returns error matching `fs.ErrNotExist`
   - `readCachedToken` on malformed JSON returns error
   - `readCachedToken` on empty token field returns error
   - `writeCachedToken` creates parent dir with mode `0700` and file with mode `0600` (verify via `os.Stat`)
+  - ➕ added: `writeCachedToken` overwrites atomically (second write wins, `.tmp` doesn't linger)
   - `isFresh` returns true when age < period, false when age == period or age > period
-- [ ] run `go test ./internal/auth/...` and `go vet ./...` — must pass before Task 3
+- [x] run `go test ./internal/auth/...` and `go vet ./...` — passed (commit `261f7af`)
 
 ### Task 3: Add refresh-period parsing with bounds checking
 
@@ -154,13 +155,13 @@ Both changes contradict explicit decisions made in earlier commits/plans on this
 - Modify: `internal/auth/cache.go`
 - Modify: `internal/auth/cache_test.go`
 
-- [ ] add constant `envRefreshPeriod = "YANDEX_IAM_TOKEN_REFRESH_PERIOD"` and `defaultRefreshHours = 10`, `maxRefreshHours = 12` in `cache.go`
-- [ ] add `parseRefreshPeriod(envValue string) time.Duration`:
+- [x] add constant `envRefreshPeriod = "YANDEX_IAM_TOKEN_REFRESH_PERIOD"` and `defaultRefreshHours = 10`, `maxRefreshHours = 12` in `cache.go`
+- [x] add `parseRefreshPeriod(envValue string) time.Duration`:
   - empty string → `defaultRefreshHours * time.Hour`
   - parses as integer hours via `strconv.Atoi`
-  - on parse error, returns default (do NOT error — env-var typos shouldn't break the CLI; document this)
-  - clamps to `[1, maxRefreshHours]`. Values ≤ 0 fall back to default. Values > 12 clamp to 12 silently (matches Yandex's hard limit; users shouldn't be forced to error-recover from a config-file typo).
-- [ ] in `cache_test.go`, table tests for `parseRefreshPeriod`:
+  - on parse error, returns default (typos shouldn't break the CLI)
+  - clamps to `[1, maxRefreshHours]`. Values ≤ 0 fall back to default. Values > 12 clamp to 12 silently.
+- [x] in `cache_test.go`, table tests for `parseRefreshPeriod`:
   - `""` → 10h
   - `"5"` → 5h
   - `"12"` → 12h
@@ -168,7 +169,8 @@ Both changes contradict explicit decisions made in earlier commits/plans on this
   - `"0"` → 10h (default)
   - `"-3"` → 10h (default)
   - `"abc"` → 10h (default)
-- [ ] run `go test ./internal/auth/...` — must pass before Task 4
+  - ➕ added: `"12h"` → 10h (defends against unit-suffix confusion)
+- [x] run `go test ./internal/auth/...` — passed (commit `ed245f6`)
 
 ### Task 4: Wire cache into `Load()` flow
 
@@ -177,24 +179,26 @@ Both changes contradict explicit decisions made in earlier commits/plans on this
 - Modify: `internal/auth/auth.go`
 - Modify: `internal/auth/auth_test.go`
 
-- [ ] in `auth.go`, factor the `YANDEX_USE_YC=1` branch into a new helper `loadYCToken(ctx context.Context) (string, error)`:
-  - resolve cache path via `cacheFilePath()`; on error, log via `fmt.Errorf` and proceed without cache (don't fail the whole Load — disk-cache failure is non-fatal degradation)
-  - read cache; if hit AND `isFresh(parseRefreshPeriod(os.Getenv(envRefreshPeriod)), time.Now())` → return cached token, no shellout
-  - else call `fetchYCToken(ctx)`. On success, attempt `writeCachedToken`; if write fails, log to stderr but still return the token (cache write is best-effort, never blocks the user)
+- [x] in `yc.go`, add new helper `loadYCToken(ctx context.Context) (string, error)` (placed there to keep yc-related code together; `auth.go` just calls it):
+  - resolve cache path via `cacheFilePath()`; on error, log to stderr and proceed without cache (non-fatal degradation)
+  - read cache; if hit AND `isFresh(parseRefreshPeriod(os.Getenv(envRefreshPeriod)), nowFn())` → return cached token, no shellout
+  - else call `fetchYCToken(ctx)`. On success, attempt `writeCachedToken`; if write fails, log to stderr but still return the token
   - on `fetchYCToken` error, return wrapped error matching the existing format
-- [ ] inject a clock seam: package-level `var nowFn = time.Now` so tests can freeze time. Same pattern as `ycExec`.
-- [ ] inject a cache-dir seam: package-level `var cacheDirFn = os.UserCacheDir` so tests can redirect to a tmpdir. Same pattern.
-- [ ] in `Load()`, replace the existing `if os.Getenv(envUseYC) == "1" { tok, err := fetchYCToken(...) }` block with `tok, err := loadYCToken(context.Background())`
-- [ ] in `auth_test.go`, add cases (each saves/restores `ycExec`, `nowFn`, `cacheDirFn`):
-  - **Cache hit (fresh)**: pre-populate cache file via `writeCachedToken` with `AcquiredAt = now - 1h`; fake exec configured to FAIL if called; assert returned token matches cached, fake exec was not invoked
-  - **Cache miss**: empty tmpdir; fake exec returns `"t1.fresh\n"`; assert returned token == `"t1.fresh"`, cache file now exists with that token and `AcquiredAt ≈ now`
-  - **Cache expired**: pre-populate cache with `AcquiredAt = now - 11h`; refresh period default (10h); fake exec returns `"t1.new\n"`; assert returned token == `"t1.new"`, cache overwritten
-  - **Custom refresh period**: `t.Setenv("YANDEX_IAM_TOKEN_REFRESH_PERIOD", "1")`; cache `AcquiredAt = now - 30min`; fake exec configured to FAIL if called; assert cache hit (30min < 1h)
-  - **Malformed cache**: write garbage bytes to cache file; fake exec returns `"t1.recover\n"`; assert returned token == `"t1.recover"`, cache overwritten with valid JSON
-  - **`YANDEX_TOKEN` set**: cache file present with token `"t1.cached"`; env `YANDEX_TOKEN=t1.env`; fake exec configured to FAIL if called; assert `c.Token == "t1.env"` AND cache file is unchanged (mtime/contents)
-  - **360 tenancy + `YANDEX_USE_YC=1`**: cache file present (Cloud cache); 360 env vars set; assert existing 360 OAuth error returned, fake exec not invoked, cache untouched
-  - **Cache write fails (read-only dir)**: `cacheDirFn` returns a path under a read-only parent; fake exec returns `"t1.transient\n"`; assert returned token == `"t1.transient"` (write failure is non-fatal)
-- [ ] run `go test ./...` and `go vet ./...` — must pass before Task 5
+- [x] inject a clock seam: package-level `var nowFn = time.Now` (in `yc.go`)
+- [x] inject a cache-dir seam: package-level `var cacheDirFn = os.UserCacheDir` (in `cache.go`)
+- [x] in `Load()`, replace `fetchYCToken(...)` call with `loadYCToken(context.Background())`
+- [x] add test helpers: `swapCacheDir(t)` (cache_test.go) and `swapNowFn(t, time)` (yc_test.go)
+- [x] update existing yc-fallback tests to call `swapCacheDir(t)` so they don't write to real `~/.cache`
+- [x] add new test cases:
+  - **CacheHit_FreshSkipsShellout**: pre-populate cache (1h old); `failingExecutor` (fails test if called); assert cache returned and unchanged
+  - **CacheMiss_ShellsOutAndWritesCache**: empty cache dir; fake returns `t1.fresh`; assert token + cache populated with `AcquiredAt == now`
+  - **CacheExpired_RefreshesAndOverwrites**: cache 11h old; default 10h period; assert refresh + overwrite
+  - **CustomRefreshPeriod_ShortenedHit**: `YANDEX_IAM_TOKEN_REFRESH_PERIOD=1`; 30min-old cache → still hit
+  - **MalformedCache_RecoversByRefetch**: garbage bytes in cache → re-fetch + overwrite with valid JSON
+  - **UserTokenWins_CacheUntouched**: env `YANDEX_TOKEN` set, cache pre-populated → env wins, cache mtime/contents unchanged
+  - **360_LeavesCloudCacheUntouched**: 360 vars + USE_YC=1 + Cloud cache file present → 360 error, cache unchanged, exec not called
+  - **CacheWriteFailure_NonFatal**: cacheDirFn returns a regular file → MkdirAll fails → token still returned, stderr warning logged
+- [x] run `go test ./...` and `go vet ./...` — passed (commit `67ddb3a`)
 
 ### Task 5: Update documentation
 
@@ -204,20 +208,20 @@ Both changes contradict explicit decisions made in earlier commits/plans on this
 - Modify: `plugins/yandex/skills/yandex/SKILL.md`
 - Modify: `CLAUDE.md`
 
-- [ ] `README.md`: add `YANDEX_IAM_TOKEN_REFRESH_PERIOD` row to the config table; update the `YANDEX_USE_YC` row to mention disk caching at `os.UserCacheDir()/yandex-cli/iam-token.json` and the refresh window
-- [ ] `SKILL.md`: one-sentence note that the binary caches the IAM token and re-runs `yc` periodically
-- [ ] `CLAUDE.md`: add a single bullet to "Things not to do" / scope: "Auth state on disk is limited to the IAM-token cache at `os.UserCacheDir()/yandex-cli/`. Do not extend this to OAuth tokens, refresh tokens, or org-id without an explicit ask." — this is a new convention worth recording.
-- [ ] run `go test ./...` once more end-to-end
+- [x] `README.md`: added `YANDEX_IAM_TOKEN_REFRESH_PERIOD` row; updated `YANDEX_USE_YC` to mention cache location and how to force a re-mint
+- [x] `SKILL.md`: one-sentence note that the IAM token is cached and refreshed
+- [x] `CLAUDE.md`: extended "no token files" rule with the IAM-cache whitelist + explicit ban on widening it
+- [x] run `go test ./...` once more end-to-end — passed (commit `7847bbf`)
 
 ### Task 6: Verify acceptance criteria
 
-- [ ] `grep -rn "YANDEX_CLI_" --include="*.go" --include="*.md" .` returns zero hits
-- [ ] All env-var references in tests use the new names
-- [ ] `YANDEX_TOKEN` unset + `YANDEX_USE_YC=1` + Cloud + empty cache → first call shells out and writes cache; second call reads cache (verified by fake exec configured to fail on second call)
-- [ ] Cache expiry triggers re-mint (verified by frozen clock and cache age > refresh period)
-- [ ] 360 path unchanged (verified by existing 360 test still passing)
-- [ ] `go vet ./...` clean, `go test ./...` green
-- [ ] move this plan to `docs/plans/completed/`
+- [x] `grep -rn "YANDEX_CLI_" --include="*.go" --include="*.md" .` returns only the plan file (intentional documentation)
+- [x] All env-var references in tests use the new names
+- [x] Cache miss → shellout + write; cache hit → no shellout (covered by `TestLoad_YCFallback_CacheMiss_…` and `TestLoad_YCFallback_CacheHit_FreshSkipsShellout`)
+- [x] Cache expiry triggers re-mint (covered by `TestLoad_YCFallback_CacheExpired_RefreshesAndOverwrites`)
+- [x] 360 path unchanged (covered by `TestLoad_YCFallback_360_NotInvoked` and `_360_LeavesCloudCacheUntouched`)
+- [x] `go vet ./...` clean, `go test ./...` green
+- [x] move this plan to `docs/plans/completed/`
 
 ## Technical Details
 
