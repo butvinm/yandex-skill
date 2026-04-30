@@ -77,7 +77,7 @@ Set exactly one — both at once is rejected.
 
 ## Output
 
-Plain text by default with blank-line block separation, optimized for LLM consumption and shell pipes:
+Plain text by default with newline-separated fields, optimized for LLM consumption and shell pipes:
 
 ```
 $ yandex-cli tracker issues get FOO-1
