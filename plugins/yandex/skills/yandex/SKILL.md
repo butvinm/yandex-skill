@@ -18,7 +18,7 @@ These environment variables must be set in the user's shell:
 Organization type is inferred from which org-id var is set. Set exactly one.
 See [Yandex Tracker → API access](https://yandex.ru/support/tracker/en/api-ref/access) for the underlying auth model.
 
-Optional on Cloud: `YANDEX_USE_YC=1` makes the binary mint an IAM token via `yc iam create-token` on each invocation when `YANDEX_TOKEN` is unset. Requires the `yc` CLI on PATH and an initialized profile. Has no effect on 360 (yc cannot mint OAuth tokens).
+Optional on Cloud: `YANDEX_USE_YC=1` makes the binary mint an IAM token via `yc iam create-token` when `YANDEX_TOKEN` is unset. The token is cached on disk and refreshed every `YANDEX_IAM_TOKEN_REFRESH_PERIOD` hours (default 10, max 12). Requires the `yc` CLI on PATH and an initialized profile. Has no effect on 360 (yc cannot mint OAuth tokens).
 
 If any are missing, the CLI exits non-zero with a tenancy-specific hint in the error message. Direct the user to the project README for setup; do NOT try to set these yourself.
 

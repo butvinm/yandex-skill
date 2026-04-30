@@ -75,4 +75,4 @@ If a task requires breaking one of these, surface it as a scope question before 
 - Don't `git add .` — stage specific files. Atomic commits.
 - Don't add a Makefile back unless asked; the bare `go` commands are the contract.
 - Don't add comments that restate code. Explain _why_ only when non-obvious.
-- Don't broaden the auth model (no token files, no keyring) without an explicit ask.
+- Don't broaden the auth model (no token files, no keyring) without an explicit ask. The one exception is the IAM token cache at `os.UserCacheDir()/yandex-cli/iam-token.json` (mode 0600), only populated when `YANDEX_USE_YC=1`. Don't extend disk persistence to OAuth tokens, refresh tokens, or org-id without an explicit ask.
