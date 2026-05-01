@@ -212,8 +212,9 @@ func (c *ListPagesCmd) Run(g *Globals) error {
 }
 
 type CreatePageCmd struct {
-	Slug  string `name:"slug" required:"" help:"target slug"`
-	Title string `name:"title" required:"" help:"page title"`
+	Slug           string `name:"slug" required:"" help:"target slug"`
+	Title          string `name:"title" required:"" help:"page title"`
+	AttachmentsDir string `name:"attachments-dir" help:"upload referenced local files and rewrite content URLs to server form (always wysiwyg for new pages)"`
 	BodyInput
 }
 
@@ -222,12 +223,34 @@ func (c *CreatePageCmd) Run(g *Globals) error {
 	if err != nil {
 		return err
 	}
+	client := wiki.New(cfg)
 	body, err := c.Read(g.Stdin)
 	if err != nil {
 		return err
 	}
-	p, err := wiki.New(cfg).CreatePage(g.Ctx, c.Slug, c.Title, body)
+	if c.AttachmentsDir == "" {
+		p, err := client.CreatePage(g.Ctx, c.Slug, c.Title, body)
+		if err != nil {
+			return err
+		}
+		return render.Confirm(g.Stdout, g.Format(), "created", p.Slug)
+	}
+	// Two-phase: create empty page first so we have a page id to bind
+	// attachments to, then upload + rewrite + update. The Wiki API binds
+	// attachments to a page id, not a slug, so this ordering is forced.
+	p, err := client.CreatePage(g.Ctx, c.Slug, c.Title, "")
 	if err != nil {
+		return err
+	}
+	// API-created pages are always page_type=wysiwyg (verified
+	// empirically); the create response doesn't always include the field,
+	// so set it explicitly for the orchestrator's guard.
+	p.PageType = wiki.PageTypeWysiwyg
+	rewritten, err := syncAttachmentsForWrite(g.Ctx, client, p, body, c.AttachmentsDir, g.Stderr)
+	if err != nil {
+		return err
+	}
+	if _, err := client.UpdatePage(g.Ctx, c.Slug, rewritten); err != nil {
 		return err
 	}
 	return render.Confirm(g.Stdout, g.Format(), "created", p.Slug)

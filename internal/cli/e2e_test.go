@@ -437,6 +437,72 @@ func TestE2E_WikiPagesUpdate_AttachmentsDir_Grid_Refuses(t *testing.T) {
 	}
 }
 
+func TestE2E_WikiPagesCreate_AttachmentsDir_NewPageWithImage(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "img.png"), []byte("PNG"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	bodyFile := filepath.Join(dir, "page.md")
+	if err := os.WriteFile(bodyFile, []byte("# title\n![alt](" + dir + "/img.png =100x100)"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var calls []string
+	var sentCreateBody, sentUpdateBody map[string]string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		key := r.Method + " " + r.URL.Path
+		calls = append(calls, key)
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/pages":
+			buf, _ := io.ReadAll(r.Body)
+			_ = jsonUnmarshal(buf, &sentCreateBody)
+			_, _ = io.WriteString(w, `{"id":42,"slug":"u/p","title":"T"}`)
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/pages":
+			// Resolve slug → id (needed by ListAttachments inside the orchestrator).
+			_, _ = io.WriteString(w, `{"id":42,"slug":"u/p","title":"T","page_type":"wysiwyg","content":""}`)
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/pages/42/attachments":
+			_, _ = io.WriteString(w, `{"results":[]}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/upload_sessions":
+			_, _ = io.WriteString(w, `{"session_id":"u-1","status":"not_started"}`)
+		case r.Method == http.MethodPut && r.URL.Path == "/v1/upload_sessions/u-1/upload_part":
+			w.WriteHeader(200)
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/upload_sessions/u-1/finish":
+			w.WriteHeader(200)
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/pages/42/attachments":
+			_, _ = io.WriteString(w, `{"results":[{"id":7,"name":"img.png","download_url":"/u/p/.files/img.png","check_status":"ready"}]}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/pages/42":
+			buf, _ := io.ReadAll(r.Body)
+			_ = jsonUnmarshal(buf, &sentUpdateBody)
+			_, _ = io.WriteString(w, `{"id":42,"slug":"u/p","title":"T","content":""}`)
+		default:
+			t.Errorf("unexpected: %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(404)
+		}
+	}))
+	defer srv.Close()
+
+	stdout, stderr, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":         "tok",
+		"YANDEX_CLOUD_ORG_ID":  "org",
+		"YANDEX_WIKI_BASE_URL": srv.URL,
+	}, "", "wiki", "pages", "create", "--slug", "u/p", "--title", "T", "--body-file", bodyFile, "--attachments-dir", dir)
+
+	if exit != 0 {
+		t.Fatalf("exit=%d stderr=%s", exit, stderr)
+	}
+	// Initial create posts an empty body; final update has the rewritten body.
+	if sentCreateBody["content"] != "" {
+		t.Errorf("initial create should send empty content, got %q", sentCreateBody["content"])
+	}
+	want := "# title\n![alt](/u/p/.files/img.png =100x100)"
+	if sentUpdateBody["content"] != want {
+		t.Errorf("update content = %q\nwant %q", sentUpdateBody["content"], want)
+	}
+	if !strings.Contains(stdout, "created: u/p") {
+		t.Errorf("stdout = %q", stdout)
+	}
+}
+
 func TestE2E_WikiPagesCreate_FromBodyFlag(t *testing.T) {
 	var sentBody map[string]string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

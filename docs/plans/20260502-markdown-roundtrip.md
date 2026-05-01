@@ -207,11 +207,11 @@ API endpoints already in the client (no new ones for this feature):
 - Modify: `internal/cli/cli.go`
 - Modify: `internal/cli/e2e_test.go`
 
-- [ ] add `AttachmentsDir string \`name:"attachments-dir"\``to`CreatePageCmd`
-- [ ] in `CreatePageCmd.Run`: when `AttachmentsDir != ""`, call `CreatePage` with empty content first to obtain a slug+id; then call the same `syncAttachmentsForWrite` orchestrator from Task 6 with the local body + the freshly-created page; then call `UpdatePage` with rewritten content. **Yes, this is two API calls instead of one** — but the alternative is uploading attachments before knowing the page slug, which the API doesn't support (attachments bind to a page id).
-- [ ] e2e `TestCreatePage_AttachmentsDir_NewPageWithImage`: assert sequence (POST create → POST upload-sessions → POST attach → POST update with rewritten body)
-- [ ] e2e `TestCreatePage_NoAttachmentsDir_BehaviorUnchanged`
-- [ ] run `go test ./... && go vet ./...` — must pass before Task 8
+- [x] add `AttachmentsDir string \`name:"attachments-dir"\``to`CreatePageCmd`
+- [x] in `CreatePageCmd.Run`: when `AttachmentsDir != ""`, call `CreatePage` with empty content first to obtain a slug+id; then call the same `syncAttachmentsForWrite` orchestrator from Task 6 with the local body + the freshly-created page; then call `UpdatePage` with rewritten content. **Yes, this is two API calls instead of one** — but the alternative is uploading attachments before knowing the page slug, which the API doesn't support (attachments bind to a page id).
+- [x] e2e `TestCreatePage_AttachmentsDir_NewPageWithImage`: assert sequence (POST create → POST upload-sessions → POST attach → POST update with rewritten body)
+- [x] e2e `TestCreatePage_NoAttachmentsDir_BehaviorUnchanged`
+- [x] run `go test ./... && go vet ./...` — must pass before Task 8
 
 ### Task 8: Documentation
 
