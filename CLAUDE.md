@@ -51,6 +51,8 @@ Use `render.SkipEmpty` (two-space separator) for inline fields and `render.SkipE
 
 **Commands.** Every command Run method follows the same shape: `auth.Load()` → instantiate client → call client method → `render.One/Many/Confirm`. Match this pattern when adding commands; don't add caching, retries, or progress output.
 
+**Markdown round-trip flag (`--attachments-dir`).** Opt-in flag on `wiki pages get/create/update`. Triggers attachment sync + URL rewriting. Rewrite scope is exactly the substring `/<current-page-slug>/.files/X` — ignores the surrounding markdown construct (image, file directive, legacy `0x0:` form). Cross-page references (`/<other-slug>/.files/X`) are intentionally untouched. Local on-disk filenames use `path.Base(download_url)`, not `Attachment.Name` — server URL basenames are unique by construction; Names are not. Page-type guard: refuse `grid` (structured table; would overwrite non-markdown data); warn on `page` and unknown; proceed on `wysiwyg`. The org-wide sweep test in `internal/wiki/sweep_test.go` (`//go:build sweep`) re-validates the safety of these contracts against live data.
+
 **CLI parser.** `kong` (alecthomas/kong). Subcommands are nested structs with `cmd:""` tags. The global `--json` is on the root struct; `Globals` carries it plus stdout/stderr/stdin/ctx via `kong.Bind`.
 
 ## Testing

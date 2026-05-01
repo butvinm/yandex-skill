@@ -16,9 +16,9 @@ A Claude Code skill for **Yandex Tracker** and **Yandex Wiki**, backed by a smal
 **Wiki**
 
 - `yandex-cli wiki pages list --parent <slug>` — list descendants (slug + title) of a page
-- `yandex-cli wiki pages get <slug>` — get page content
-- `yandex-cli wiki pages create --slug ... --title ... --body[-file] ...` — create a page
-- `yandex-cli wiki pages update <slug> --body[-file] ...` — update a page
+- `yandex-cli wiki pages get <slug> [--output PATH|-] [--attachments-dir DIR]` — get page content (and optionally sync attachments + rewrite links for local round-trip)
+- `yandex-cli wiki pages create --slug ... --title ... --body[-file] ... [--attachments-dir DIR]` — create a page (uploads any attachments referenced as `<DIR>/<file>` first)
+- `yandex-cli wiki pages update <slug> --body[-file] ... [--attachments-dir DIR]` — update a page (same attachment sync as create)
 - `yandex-cli wiki attachments list <slug>` — list a page's attachments
 - `yandex-cli wiki attachments upload <slug> --file PATH [--name NAME]` — upload (≤16 MiB)
 - `yandex-cli wiki attachments download <slug> <filename> [--output PATH|-]` — stream binary
@@ -98,9 +98,32 @@ yandex-cli --json tracker issues get FOO-1
 
 Errors go to stderr with non-zero exit. With `--json`, errors are JSON: `{"error":"...","status":<http>}`.
 
+## Markdown round-trip
+
+`--attachments-dir DIR` on `pages get/create/update` syncs attachments alongside the markdown body and rewrites in-page URLs between the server form (`/<page-slug>/.files/<file>`) and a local relative form (`<DIR>/<file>`). Use it for "fetch a page locally, edit, push back" workflows where attachments should travel with the markdown.
+
+```sh
+# fetch page + all its attachments to local dir, write rewritten markdown to file
+yandex-cli wiki pages get team/notes/2026-04-29 --output page.md --attachments-dir ./att
+
+# edit page.md, add ./att/new.png, then push back — new.png is uploaded automatically
+yandex-cli wiki pages update team/notes/2026-04-29 --body-file page.md --attachments-dir ./att
+```
+
+Behavior depends on the page's `page_type` (which the API exposes per page):
+
+| page_type | with `--attachments-dir`                                                                                 |
+| --------- | -------------------------------------------------------------------------------------------------------- |
+| `wysiwyg` | full feature (modern Yandex Flavored Markdown pages)                                                     |
+| `page`    | warning to stderr, proceeds (legacy "static markup" — content is not markdown, rewrite is usually no-op) |
+| `grid`    | refused (dynamic table; structured data, not markdown)                                                   |
+
+Attachments not referenced in the markdown body are still downloaded by `get` (some pages keep them in the sidebar) and are not deleted by `update` (drift is one-directional).
+
 ## Limitations
 
 - **No Tracker writes** (no comments, no transitions, no edits)
 - **Wiki attachment uploads are single-part only** — files larger than 16 MiB are rejected. The Yandex Wiki upload-sessions API supports chunked uploads up to ~160 GB; we ship single-part to keep the client lean.
 - **No pagination flags** — clients fetch all pages internally
 - **Wiki has no free-text search** — `wiki pages list` accepts `--parent` only
+- **`--attachments-dir` does not delete server attachments** that aren't referenced locally; use `wiki attachments delete` explicitly

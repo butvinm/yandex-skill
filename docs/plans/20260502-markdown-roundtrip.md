@@ -221,10 +221,10 @@ API endpoints already in the client (no new ones for this feature):
 - Modify: `CLAUDE.md`
 - Modify: `plugins/yandex/skills/yandex/SKILL.md`
 
-- [ ] `README.md`: add a "Markdown round-trip" section under the wiki commands; show one read example, one write example, mention page-type matrix in plain language; update the limitations section if it claims something this feature changes
-- [ ] `CLAUDE.md`: add a paragraph in the Wiki conventions section: "`--attachments-dir` is YFM-only; the rewrite regex is scoped to `/<current-slug>/\.files/X` to avoid mangling cross-page refs; grid pages are refused"; reference the sweep test for re-validation
-- [ ] `plugins/yandex/skills/yandex/SKILL.md`: surface the new flags and the page-type matrix so the agent knows when to refuse upfront
-- [ ] no test changes for docs
+- [x] `README.md`: add a "Markdown round-trip" section under the wiki commands; show one read example, one write example, mention page-type matrix in plain language; update the limitations section if it claims something this feature changes
+- [x] `CLAUDE.md`: add a paragraph in the Wiki conventions section: "`--attachments-dir` is YFM-only; the rewrite regex is scoped to `/<current-slug>/\.files/X` to avoid mangling cross-page refs; grid pages are refused"; reference the sweep test for re-validation
+- [x] `plugins/yandex/skills/yandex/SKILL.md`: surface the new flags and the page-type matrix so the agent knows when to refuse upfront
+- [x] no test changes for docs
 
 ### Task 9: Verify acceptance criteria
 

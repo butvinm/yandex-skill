@@ -35,9 +35,9 @@ Tracker (read only):
 Wiki pages (read + write):
 
 - `yandex-cli wiki pages list --parent <slug>` — list child pages (slug + title) of a parent
-- `yandex-cli wiki pages get <slug>` — fetch a page (title, modified time, body)
-- `yandex-cli wiki pages create --slug <new/path> --title <s> --body[-file] <s|path|->` — create a page
-- `yandex-cli wiki pages update <slug> --body[-file] <s|path|->` — replace page body
+- `yandex-cli wiki pages get <slug> [--output <path|->] [--attachments-dir <dir>]` — fetch a page; with `--output`, write raw content to file (no title prefix); with `--attachments-dir`, also download attachments and rewrite in-page URLs to local relative paths
+- `yandex-cli wiki pages create --slug <new/path> --title <s> --body[-file] <s|path|-> [--attachments-dir <dir>]` — create a page; with `--attachments-dir`, upload local files referenced as `<dir>/<X>` and rewrite URLs to server form
+- `yandex-cli wiki pages update <slug> --body[-file] <s|path|-> [--attachments-dir <dir>]` — replace page body; same `--attachments-dir` semantics as create
 
 Wiki attachments (read + write):
 
@@ -103,9 +103,22 @@ yandex-cli wiki attachments download team/notes/2026-04-29 diagram.png \
 
 Use `--output -` (default) to stream to stdout — pipe straight into another tool. Note that this is binary on most attachments; redirect to a file rather than printing in a terminal.
 
+### Markdown round-trip (page + attachments together)
+
+Use `--attachments-dir <dir>` to fetch a page with its attachments, edit locally, and push back without manually wiring URLs. URLs of the form `/<page-slug>/.files/<X>` ↔ `<dir>/<X>` are rewritten in both directions.
+
+```sh
+yandex-cli wiki pages get team/notes/2026-04-29 --output page.md --attachments-dir ./att
+# edit page.md, drop new files into ./att, reference them as ./att/foo.png
+yandex-cli wiki pages update team/notes/2026-04-29 --body-file page.md --attachments-dir ./att
+```
+
+`--attachments-dir` only operates safely on modern markdown (`page_type=wysiwyg`) pages. It refuses `grid` pages outright (structured tables, not markdown content) and warns on legacy `page` pages (the rewrite is usually a no-op on legacy syntax). Pages created via this CLI are always `wysiwyg`. Server-side attachments not referenced locally are NOT deleted — drift is one-directional.
+
 ## Limitations
 
 - No Tracker writes (no comments, transitions, edits)
 - Wiki attachment uploads are single-part only (≤16 MiB) — chunked uploads not implemented
 - No free-text search for Wiki — `pages list` accepts `--parent` only
 - Pagination is internal — large result sets fetch in full
+- `--attachments-dir` does not delete server attachments that aren't referenced locally — use `wiki attachments delete` explicitly
