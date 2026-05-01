@@ -228,15 +228,15 @@ API endpoints already in the client (no new ones for this feature):
 
 ### Task 9: Verify acceptance criteria
 
-- [ ] verify all rows in the page-type matrix in Decisions are exercised by an e2e
-- [ ] verify both YFM syntaxes (`![](=WxH)` and `:file[]{type=...}`) and the legacy `0x0:` syntax are exercised by markdown_test
-- [ ] verify cross-page reference is exercised
-- [ ] verify duplicate-name attachments are exercised
-- [ ] run `go test ./...` — all green
-- [ ] run `go vet ./...` — clean
-- [ ] run `go build -o /tmp/yandex-cli-final ./cmd/yandex-cli` — clean
-- [ ] manual smoke: `/tmp/yandex-cli-final wiki pages get users/m.butvin/test-wysiwyg --output /tmp/x.md --attachments-dir /tmp/att/` against the live API; verify file contents and attachment files
-- [ ] manual smoke: edit `/tmp/x.md`, then `/tmp/yandex-cli-final wiki pages update users/m.butvin/test-wysiwyg --body-file /tmp/x.md --attachments-dir /tmp/att/`; verify the page in the UI
+- [x] verify all rows in the page-type matrix in Decisions are exercised by an e2e (9 e2e tests cover wysiwyg/page/grid × get/update + create)
+- [x] verify both YFM syntaxes (`![](=WxH)` and `:file[]{type=...}`) and the legacy `0x0:` syntax are exercised by markdown_test (TestRewriteServerToLocal table cases)
+- [x] verify cross-page reference is exercised (TestRewriteServerToLocal + TestE2E_WikiPagesGet_AttachmentsDir_CrossPageRefUntouched)
+- [x] verify duplicate-name attachments are exercised (TestE2E_WikiPagesGet_AttachmentsDir_DuplicateNames)
+- [x] run `go test ./...` — all green
+- [x] run `go vet ./...` — clean
+- [x] run `go build -o /tmp/yandex-cli-final ./cmd/yandex-cli` — clean
+- [ ] manual smoke (user-driven): `wiki pages get users/m.butvin/<live-wysiwyg-slug> --output /tmp/x.md --attachments-dir /tmp/att/`; verify file contents and attachment files. (Test pages from brainstorm were cleaned up; needs a fresh live wysiwyg page with at least one attachment.)
+- [ ] manual smoke (user-driven): edit `/tmp/x.md`, then `wiki pages update <slug> --body-file /tmp/x.md --attachments-dir /tmp/att/`; verify the page in the UI
 
 ### Task 10: Move plan to completed
 
