@@ -1,8 +1,20 @@
 package cli
 
 import (
+	"bytes"
+	"context"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
+
+	"github.com/butvinm/yandex-skill/internal/auth"
+	"github.com/butvinm/yandex-skill/internal/wiki"
 )
 
 func TestRewriteServerToLocal(t *testing.T) {
@@ -214,3 +226,137 @@ func TestRewriteLocalToServer(t *testing.T) {
 		})
 	}
 }
+
+func TestRefuseGrid(t *testing.T) {
+	if err := refuseGrid(wiki.PageTypeWysiwyg); err != nil {
+		t.Errorf("wysiwyg should not refuse: %v", err)
+	}
+	if err := refuseGrid(wiki.PageTypePage); err != nil {
+		t.Errorf("page should not refuse: %v", err)
+	}
+	if err := refuseGrid(""); err != nil {
+		t.Errorf("unknown should not refuse: %v", err)
+	}
+	err := refuseGrid(wiki.PageTypeGrid)
+	if err == nil || !strings.Contains(err.Error(), "page_type=grid") {
+		t.Errorf("grid should refuse with helpful error, got %v", err)
+	}
+}
+
+func TestWarnNonWysiwyg(t *testing.T) {
+	cases := []struct {
+		pageType string
+		wantWarn bool
+	}{
+		{wiki.PageTypeWysiwyg, false},
+		{wiki.PageTypeGrid, false}, // grid is filtered by refuseGrid; warn shouldn't fire
+		{wiki.PageTypePage, true},
+		{"", true},
+		{"unknown_future", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.pageType, func(t *testing.T) {
+			var buf bytes.Buffer
+			warnNonWysiwyg(tc.pageType, &buf)
+			gotWarn := buf.Len() > 0
+			if gotWarn != tc.wantWarn {
+				t.Errorf("warn=%v want=%v stderr=%q", gotWarn, tc.wantWarn, buf.String())
+			}
+			if gotWarn && !strings.Contains(buf.String(), "warning:") {
+				t.Errorf("warning should be prefixed: %q", buf.String())
+			}
+		})
+	}
+}
+
+// fakeWikiForGet spins up an httptest server that handles the endpoints
+// syncAttachmentsForGet uses: page resolve, attachment list, attachment
+// download. Callers pass the page id/slug, the attachments JSON to serve,
+// and the byte blob returned for every download_by_url GET.
+func fakeWikiForGet(t *testing.T, pageID int64, pageSlug, attsJSON string, blob []byte) *wiki.Client {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/v1/pages":
+			fmt.Fprintf(w, `{"id":%d,"slug":%q,"title":"T","page_type":"wysiwyg","content":""}`, pageID, pageSlug)
+		case r.URL.Path == fmt.Sprintf("/v1/pages/%d/attachments", pageID):
+			io.WriteString(w, attsJSON)
+		case r.URL.Path == "/v1/pages/attachments/download_by_url":
+			_, _ = w.Write(blob)
+		default:
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(404)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return wiki.New(auth.Config{Token: "t", OrgID: "o", WikiBaseURL: srv.URL})
+}
+
+func TestSyncAttachmentsForGet_Wysiwyg(t *testing.T) {
+	atts := `{"results":[
+		{"id":1,"name":"изображение.png","download_url":"/users/m/test/.files/img.png","check_status":"ready"},
+		{"id":2,"name":"doc.pdf","download_url":"/users/m/test/.files/doc.pdf","check_status":"ready"}
+	]}`
+	blob := []byte("BINARY")
+	client := fakeWikiForGet(t, 42, "users/m/test", atts, blob)
+	page := &wiki.Page{
+		ID:       42,
+		Slug:     "users/m/test",
+		PageType: wiki.PageTypeWysiwyg,
+		Content:  "![](/users/m/test/.files/img.png =100x100)\n:file[doc](/users/m/test/.files/doc.pdf){type=\"application/pdf\"}",
+	}
+	dir := t.TempDir()
+	var stderr bytes.Buffer
+	got, err := syncAttachmentsForGet(context.Background(), client, page, dir, &stderr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stderr.Len() > 0 {
+		t.Errorf("wysiwyg should produce no warning, stderr=%q", stderr.String())
+	}
+	wantContent := "![](" + dir + "/img.png =100x100)\n:file[doc](" + dir + "/doc.pdf){type=\"application/pdf\"}"
+	if got != wantContent {
+		t.Errorf("content =\n%q\nwant\n%q", got, wantContent)
+	}
+	for _, name := range []string{"img.png", "doc.pdf"} {
+		b, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil {
+			t.Errorf("read %s: %v", name, err)
+		} else if string(b) != "BINARY" {
+			t.Errorf("file %s contents = %q", name, string(b))
+		}
+	}
+}
+
+func TestSyncAttachmentsForGet_Grid_Refuses(t *testing.T) {
+	page := &wiki.Page{Slug: "x", PageType: wiki.PageTypeGrid}
+	var stderr bytes.Buffer
+	_, err := syncAttachmentsForGet(context.Background(), nil, page, t.TempDir(), &stderr)
+	if err == nil || !strings.Contains(err.Error(), "page_type=grid") {
+		t.Fatalf("want grid refusal, got %v", err)
+	}
+}
+
+func TestSyncAttachmentsForGet_Page_Warns(t *testing.T) {
+	atts := `{"results":[]}`
+	client := fakeWikiForGet(t, 7, "homepage", atts, nil)
+	page := &wiki.Page{
+		ID:       7,
+		Slug:     "homepage",
+		PageType: wiki.PageTypePage,
+		Content:  "((http://x Title))",
+	}
+	var stderr bytes.Buffer
+	got, err := syncAttachmentsForGet(context.Background(), client, page, t.TempDir(), &stderr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stderr.String(), "warning:") || !strings.Contains(stderr.String(), `"page"`) {
+		t.Errorf("expected warning to stderr, got %q", stderr.String())
+	}
+	// Content has no /<slug>/.files/ matches, so rewrite is a no-op.
+	if got != page.Content {
+		t.Errorf("legacy content with no /.files/ should pass through unchanged, got %q", got)
+	}
+}
+

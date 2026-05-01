@@ -158,21 +158,21 @@ API endpoints already in the client (no new ones for this feature):
 - Modify: `internal/cli/markdown_test.go`
 - Modify: `internal/cli/e2e_test.go`
 
-- [ ] add `AttachmentsDir string \`name:"attachments-dir" help:"sync attachments to local directory and rewrite content URLs"\``to`GetPageCmd`
-- [ ] in `internal/cli/markdown.go`, add the orchestrator: `func syncAttachmentsForGet(ctx, client *wiki.Client, page *wiki.Page, attachmentsDir string, stderr io.Writer) (rewrittenContent string, err error)` — handles guard, mkdir, downloads (every attachment, not just referenced), rewrite
-- [ ] page-type guard logic: `grid` → return error `"page_type=grid: structured table, not markdown — see /v1/grids/{id} (out of scope for this CLI)"`; not `wysiwyg` and not `grid` → write warning to `stderr` (`"warning: page_type=%s: content may not be Yandex Flavored Markdown; attachment-link rewriting may have no effect"`); proceed
-- [ ] `os.MkdirAll(attachmentsDir, 0o755)` before downloads
-- [ ] for each attachment: `dst := filepath.Join(attachmentsDir, path.Base(att.DownloadURL))`; open dst (0o644); call `client.DownloadAttachment(ctx, slug, att.Name, dst)` — wait, current `DownloadAttachment` takes a name argument and does the lookup. Use the existing call shape. **NB:** double-check — given B2 was fixed to download by URL, this should already work; verify in implementation.
-- [ ] integrate with `GetPageCmd.Run`: if `AttachmentsDir != ""`, after fetch, run sync + rewrite, then write rewritten content (to `--output` or stdout-raw, NOT through Plain())
-- [ ] add unit test `TestSyncAttachmentsForGet_Wysiwyg`: stub client, assert files written + content rewritten
-- [ ] add unit test `TestSyncAttachmentsForGet_Grid_Refuses`
-- [ ] add unit test `TestSyncAttachmentsForGet_Page_Warns`
-- [ ] add e2e test `TestGetPage_AttachmentsDir_Wysiwyg_ImageAndFileDirective`: stub Wiki returning content with both syntaxes + 2 attachments; assert disk files + rewritten stdout
-- [ ] add e2e test `TestGetPage_AttachmentsDir_CrossPageRef_Untouched`
-- [ ] add e2e test `TestGetPage_AttachmentsDir_DuplicateNames`: 3 attachments named X but with `download_url` X, X-1, X-2 → 3 distinct local files
-- [ ] add e2e test `TestGetPage_AttachmentsDir_Page_WarningOnStderr`
-- [ ] add e2e test `TestGetPage_AttachmentsDir_Grid_RefuseWithError`
-- [ ] run `go test ./... && go vet ./...` — must pass before Task 6
+- [x] add `AttachmentsDir string \`name:"attachments-dir" help:"sync attachments to local directory and rewrite content URLs"\``to`GetPageCmd`
+- [x] in `internal/cli/markdown.go`, add the orchestrator: `func syncAttachmentsForGet(ctx, client *wiki.Client, page *wiki.Page, attachmentsDir string, stderr io.Writer) (rewrittenContent string, err error)` — handles guard, mkdir, downloads (every attachment, not just referenced), rewrite
+- [x] page-type guard logic: `grid` → return error `"page_type=grid: structured table, not markdown — see /v1/grids/{id} (out of scope for this CLI)"`; not `wysiwyg` and not `grid` → write warning to `stderr` (`"warning: page_type=%s: content may not be Yandex Flavored Markdown; attachment-link rewriting may have no effect"`); proceed
+- [x] `os.MkdirAll(attachmentsDir, 0o755)` before downloads
+- [x] for each attachment: `dst := filepath.Join(attachmentsDir, path.Base(att.DownloadURL))`; open dst (0o644); call `client.DownloadAttachment(ctx, slug, att.Name, dst)` — wait, current `DownloadAttachment` takes a name argument and does the lookup. Use the existing call shape. **NB:** double-check — given B2 was fixed to download by URL, this should already work; verify in implementation.
+- [x] integrate with `GetPageCmd.Run`: if `AttachmentsDir != ""`, after fetch, run sync + rewrite, then write rewritten content (to `--output` or stdout-raw, NOT through Plain())
+- [x] add unit test `TestSyncAttachmentsForGet_Wysiwyg`: stub client, assert files written + content rewritten
+- [x] add unit test `TestSyncAttachmentsForGet_Grid_Refuses`
+- [x] add unit test `TestSyncAttachmentsForGet_Page_Warns`
+- [x] add e2e test `TestGetPage_AttachmentsDir_Wysiwyg_ImageAndFileDirective`: stub Wiki returning content with both syntaxes + 2 attachments; assert disk files + rewritten stdout
+- [x] add e2e test `TestGetPage_AttachmentsDir_CrossPageRef_Untouched`
+- [x] add e2e test `TestGetPage_AttachmentsDir_DuplicateNames`: 3 attachments named X but with `download_url` X, X-1, X-2 → 3 distinct local files
+- [x] add e2e test `TestGetPage_AttachmentsDir_Page_WarningOnStderr`
+- [x] add e2e test `TestGetPage_AttachmentsDir_Grid_RefuseWithError`
+- [x] run `go test ./... && go vet ./...` — must pass before Task 6
 
 ### Task 6: `--attachments-dir` on `wiki pages update`
 

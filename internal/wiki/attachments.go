@@ -134,8 +134,16 @@ func (c *Client) DownloadAttachment(ctx context.Context, pageSlug, filename stri
 	if att.CheckStatus != "" && att.CheckStatus != "ready" {
 		return fmt.Errorf("attachment %q has check_status=%s; refusing to download", filename, att.CheckStatus)
 	}
+	return c.DownloadAttachmentByURL(ctx, att.DownloadURL, w)
+}
+
+// DownloadAttachmentByURL streams the attachment at downloadURL to w. Use
+// this when you already have the URL from a prior ListAttachments call —
+// it skips the slug+name resolution (and its ambiguity errors) that
+// DownloadAttachment performs.
+func (c *Client) DownloadAttachmentByURL(ctx context.Context, downloadURL string, w io.Writer) error {
 	q := url.Values{}
-	q.Set("url", strings.TrimPrefix(att.DownloadURL, "/"))
+	q.Set("url", strings.TrimPrefix(downloadURL, "/"))
 	q.Set("download", "true")
 	resp, err := c.DoRaw(ctx, http.MethodGet, "/v1/pages/attachments/download_by_url?"+q.Encode(), "", nil)
 	if err != nil {

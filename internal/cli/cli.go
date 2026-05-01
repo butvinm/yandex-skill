@@ -149,8 +149,9 @@ func (c *ListQueuesCmd) Run(g *Globals) error {
 // --- Wiki commands ---
 
 type GetPageCmd struct {
-	Slug   string `arg:"" help:"page slug (e.g. team/notes/2026-04-29)"`
-	Output string `name:"output" help:"write raw page content to file ('-' for stdout); default: stdout via Plain rendering"`
+	Slug           string `arg:"" help:"page slug (e.g. team/notes/2026-04-29)"`
+	Output         string `name:"output" help:"write raw page content to file ('-' for stdout); default: stdout via Plain rendering"`
+	AttachmentsDir string `name:"attachments-dir" help:"sync attachments to local directory and rewrite content URLs to local relative paths (YFM markdown only; refuses grid pages, warns on legacy)"`
 }
 
 func (c *GetPageCmd) Run(g *Globals) error {
@@ -158,9 +159,24 @@ func (c *GetPageCmd) Run(g *Globals) error {
 	if err != nil {
 		return err
 	}
-	p, err := wiki.New(cfg).GetPage(g.Ctx, c.Slug)
+	client := wiki.New(cfg)
+	p, err := client.GetPage(g.Ctx, c.Slug)
 	if err != nil {
 		return err
+	}
+	if c.AttachmentsDir != "" {
+		rewritten, err := syncAttachmentsForGet(g.Ctx, client, p, c.AttachmentsDir, g.Stderr)
+		if err != nil {
+			return err
+		}
+		// With --attachments-dir, content is the round-trip artifact; the
+		// title-prefixed Plain() rendering would corrupt that. Default to
+		// raw stdout when --output isn't given.
+		out := c.Output
+		if out == "" {
+			out = "-"
+		}
+		return writeRawContent(g.Stdout, out, rewritten)
 	}
 	if c.Output != "" {
 		return writeRawContent(g.Stdout, c.Output, p.Content)

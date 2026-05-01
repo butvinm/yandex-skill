@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -161,6 +162,157 @@ func TestE2E_WikiPagesGet_OutputDash(t *testing.T) {
 	// --output - emits raw content to stdout (no title prefix, no trailing newline).
 	if stdout != "# hi\nbody" {
 		t.Errorf("stdout = %q", stdout)
+	}
+}
+
+// wikiGetMux serves GetPage + ListAttachments + DownloadAttachment for the
+// e2e tests of `wiki pages get --attachments-dir`. Customize via the page
+// object and attachment list/blob.
+func wikiGetMux(t *testing.T, page string, pageID int64, atts string, blob []byte) http.HandlerFunc {
+	t.Helper()
+	return func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/v1/pages":
+			_, _ = io.WriteString(w, page)
+		case r.URL.Path == "/v1/pages/"+strconv.FormatInt(pageID, 10)+"/attachments":
+			_, _ = io.WriteString(w, atts)
+		case r.URL.Path == "/v1/pages/attachments/download_by_url":
+			_, _ = w.Write(blob)
+		default:
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(404)
+		}
+	}
+}
+
+func TestE2E_WikiPagesGet_AttachmentsDir_Wysiwyg(t *testing.T) {
+	page := `{"id":42,"slug":"users/m/test","title":"T","page_type":"wysiwyg","content":"![alt](/users/m/test/.files/img.png =100x100)\n:file[doc](/users/m/test/.files/doc.pdf){type=\"application/pdf\"}"}`
+	atts := `{"results":[
+		{"id":1,"name":"изображение.png","download_url":"/users/m/test/.files/img.png","check_status":"ready"},
+		{"id":2,"name":"doc.pdf","download_url":"/users/m/test/.files/doc.pdf","check_status":"ready"}
+	]}`
+	srv := httptest.NewServer(wikiGetMux(t, page, 42, atts, []byte("BLOB")))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	stdout, stderr, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":         "tok",
+		"YANDEX_CLOUD_ORG_ID":  "org",
+		"YANDEX_WIKI_BASE_URL": srv.URL,
+	}, "", "wiki", "pages", "get", "users/m/test", "--attachments-dir", dir)
+
+	if exit != 0 {
+		t.Fatalf("exit=%d stderr=%s", exit, stderr)
+	}
+	if stderr != "" {
+		t.Errorf("wysiwyg should produce no stderr, got %q", stderr)
+	}
+	wantBoth := []string{
+		"![alt](" + dir + "/img.png =100x100)",
+		":file[doc](" + dir + "/doc.pdf){type=\"application/pdf\"}",
+	}
+	for _, w := range wantBoth {
+		if !strings.Contains(stdout, w) {
+			t.Errorf("stdout missing %q\nfull stdout:\n%s", w, stdout)
+		}
+	}
+	for _, name := range []string{"img.png", "doc.pdf"} {
+		b, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil || string(b) != "BLOB" {
+			t.Errorf("attachment file %s = %q err=%v", name, string(b), err)
+		}
+	}
+}
+
+func TestE2E_WikiPagesGet_AttachmentsDir_CrossPageRefUntouched(t *testing.T) {
+	page := `{"id":42,"slug":"a/page","title":"T","page_type":"wysiwyg","content":"![own](/a/page/.files/own.png) ![other](/b/other/.files/other.png)"}`
+	atts := `{"results":[{"id":1,"name":"own.png","download_url":"/a/page/.files/own.png","check_status":"ready"}]}`
+	srv := httptest.NewServer(wikiGetMux(t, page, 42, atts, []byte("X")))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	stdout, _, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":         "tok",
+		"YANDEX_CLOUD_ORG_ID":  "org",
+		"YANDEX_WIKI_BASE_URL": srv.URL,
+	}, "", "wiki", "pages", "get", "a/page", "--attachments-dir", dir)
+
+	if exit != 0 {
+		t.Fatalf("exit=%d", exit)
+	}
+	if !strings.Contains(stdout, "![own]("+dir+"/own.png)") {
+		t.Errorf("own ref should be rewritten: %q", stdout)
+	}
+	if !strings.Contains(stdout, "![other](/b/other/.files/other.png)") {
+		t.Errorf("cross-page ref should be untouched: %q", stdout)
+	}
+}
+
+func TestE2E_WikiPagesGet_AttachmentsDir_DuplicateNames(t *testing.T) {
+	// All 3 attachments share Name; download_url uses -1, -2 suffix
+	// disambiguation. Local files should follow the URL basename, so all
+	// three land on disk distinctly.
+	page := `{"id":42,"slug":"u/p","title":"T","page_type":"wysiwyg","content":"![](/u/p/.files/img.png) ![](/u/p/.files/img-1.png) ![](/u/p/.files/img-2.png)"}`
+	atts := `{"results":[
+		{"id":1,"name":"img.png","download_url":"/u/p/.files/img.png","check_status":"ready"},
+		{"id":2,"name":"img.png","download_url":"/u/p/.files/img-1.png","check_status":"ready"},
+		{"id":3,"name":"img.png","download_url":"/u/p/.files/img-2.png","check_status":"ready"}
+	]}`
+	srv := httptest.NewServer(wikiGetMux(t, page, 42, atts, []byte("Y")))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	_, _, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":         "tok",
+		"YANDEX_CLOUD_ORG_ID":  "org",
+		"YANDEX_WIKI_BASE_URL": srv.URL,
+	}, "", "wiki", "pages", "get", "u/p", "--attachments-dir", dir)
+	if exit != 0 {
+		t.Fatalf("exit=%d", exit)
+	}
+	for _, n := range []string{"img.png", "img-1.png", "img-2.png"} {
+		if _, err := os.Stat(filepath.Join(dir, n)); err != nil {
+			t.Errorf("missing file %s: %v", n, err)
+		}
+	}
+}
+
+func TestE2E_WikiPagesGet_AttachmentsDir_Page_WarningOnStderr(t *testing.T) {
+	page := `{"id":42,"slug":"homepage","title":"H","page_type":"page","content":"((http://x Title))"}`
+	atts := `{"results":[]}`
+	srv := httptest.NewServer(wikiGetMux(t, page, 42, atts, nil))
+	defer srv.Close()
+
+	_, stderr, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":         "tok",
+		"YANDEX_CLOUD_ORG_ID":  "org",
+		"YANDEX_WIKI_BASE_URL": srv.URL,
+	}, "", "wiki", "pages", "get", "homepage", "--attachments-dir", t.TempDir())
+
+	if exit != 0 {
+		t.Fatalf("exit=%d stderr=%s", exit, stderr)
+	}
+	if !strings.Contains(stderr, "warning") || !strings.Contains(stderr, `"page"`) {
+		t.Errorf("expected stderr warning for page_type=page, got %q", stderr)
+	}
+}
+
+func TestE2E_WikiPagesGet_AttachmentsDir_Grid_RefuseWithError(t *testing.T) {
+	page := `{"id":42,"slug":"some/grid","title":"G","page_type":"grid","content":null}`
+	srv := httptest.NewServer(wikiGetMux(t, page, 42, "", nil))
+	defer srv.Close()
+
+	_, stderr, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":         "tok",
+		"YANDEX_CLOUD_ORG_ID":  "org",
+		"YANDEX_WIKI_BASE_URL": srv.URL,
+	}, "", "wiki", "pages", "get", "some/grid", "--attachments-dir", t.TempDir())
+
+	if exit != 1 {
+		t.Errorf("expected exit=1, got %d", exit)
+	}
+	if !strings.Contains(stderr, "page_type=grid") {
+		t.Errorf("expected grid refusal in stderr, got %q", stderr)
 	}
 }
 

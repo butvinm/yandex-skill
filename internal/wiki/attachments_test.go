@@ -121,6 +121,32 @@ func TestDownloadAttachment_HappyPath(t *testing.T) {
 	}
 }
 
+func TestDownloadAttachmentByURL_HappyPath(t *testing.T) {
+	var sentURL string
+	c, _ := newWiki(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/pages/attachments/download_by_url" {
+			t.Errorf("path = %s", r.URL.Path)
+		}
+		sentURL = r.URL.Query().Get("url")
+		if r.URL.Query().Get("download") != "true" {
+			t.Errorf("download = %s", r.URL.Query().Get("download"))
+		}
+		_, _ = w.Write([]byte("DIRECT"))
+	})
+
+	var buf bytes.Buffer
+	// Note: leading "/" is stripped from the query value.
+	if err := c.DownloadAttachmentByURL(context.Background(), "/team/notes/.files/img.png", &buf); err != nil {
+		t.Fatal(err)
+	}
+	if sentURL != "team/notes/.files/img.png" {
+		t.Errorf("sent url = %q", sentURL)
+	}
+	if buf.String() != "DIRECT" {
+		t.Errorf("body = %q", buf.String())
+	}
+}
+
 // The server's download_by_url endpoint expects the URL form returned in
 // the attachment's download_url field — typically with a server-mangled
 // filename (e.g. underscores stripped, transliterated). Constructing the

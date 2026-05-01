@@ -1,9 +1,17 @@
 package cli
 
 import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/butvinm/yandex-skill/internal/wiki"
 )
 
 // attachmentURLRegex matches every `/<pageSlug>/.files/<filename>` URL in
@@ -76,4 +84,68 @@ func rewriteLocalToServer(content, attachmentsDir string, urlByBasename map[stri
 		}
 		return match
 	})
+}
+
+// refuseGrid returns an error for grid pages, which store structured table
+// data at /v1/grids/{id} and have no markdown content. Other page types
+// (wysiwyg, legacy page, unknown) pass through.
+func refuseGrid(pageType string) error {
+	if pageType == wiki.PageTypeGrid {
+		return errors.New("page_type=grid: structured table, not markdown content (see /v1/grids/{id})")
+	}
+	return nil
+}
+
+// warnNonWysiwyg emits a stderr warning when the page is not modern YFM
+// markdown. Grid pages should be filtered out via refuseGrid first; this
+// only warns for legacy `page` and unknown types.
+func warnNonWysiwyg(pageType string, stderr io.Writer) {
+	if pageType == wiki.PageTypeWysiwyg || pageType == wiki.PageTypeGrid {
+		return
+	}
+	fmt.Fprintf(stderr, "warning: page_type=%q: content may not be Yandex Flavored Markdown; attachment-link rewriting may have no effect\n", pageType)
+}
+
+// syncAttachmentsForGet downloads every attachment on the page into
+// attachmentsDir and returns the page content with server attachment URLs
+// rewritten to local relative paths.
+//
+// Refuses grid pages outright. Warns on other non-wysiwyg types but
+// proceeds — the rewrite is a no-op when content has no `/<slug>/.files/X`
+// matches, which is the common case for plain legacy pages.
+//
+// Downloads every attachment, not only the ones referenced inline:
+// attachments can live in the page sidebar without an inline link, and
+// dropping them on get would silently lose data on round-trip.
+func syncAttachmentsForGet(ctx context.Context, client *wiki.Client, page *wiki.Page, attachmentsDir string, stderr io.Writer) (string, error) {
+	if err := refuseGrid(page.PageType); err != nil {
+		return "", err
+	}
+	warnNonWysiwyg(page.PageType, stderr)
+	if err := os.MkdirAll(attachmentsDir, 0o755); err != nil {
+		return "", fmt.Errorf("mkdir attachments-dir: %w", err)
+	}
+	atts, err := client.ListAttachments(ctx, page.Slug)
+	if err != nil {
+		return "", fmt.Errorf("list attachments: %w", err)
+	}
+	for _, att := range atts {
+		if att.CheckStatus != "" && att.CheckStatus != "ready" {
+			return "", fmt.Errorf("attachment %q has check_status=%s; refusing to download", att.Name, att.CheckStatus)
+		}
+		urlName := path.Base(att.DownloadURL)
+		dst := filepath.Join(attachmentsDir, urlName)
+		f, err := os.Create(dst)
+		if err != nil {
+			return "", fmt.Errorf("create %s: %w", dst, err)
+		}
+		if err := client.DownloadAttachmentByURL(ctx, att.DownloadURL, f); err != nil {
+			_ = f.Close()
+			return "", fmt.Errorf("download %s: %w", urlName, err)
+		}
+		if err := f.Close(); err != nil {
+			return "", fmt.Errorf("close %s: %w", dst, err)
+		}
+	}
+	return rewriteServerToLocal(page.Content, page.Slug, attachmentsDir), nil
 }
