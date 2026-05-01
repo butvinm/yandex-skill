@@ -141,13 +141,13 @@ API endpoints already in the client (no new ones for this feature):
 - Modify: `internal/cli/cli.go`
 - Modify: `internal/cli/e2e_test.go`
 
-- [ ] add `Output string \`name:"output" help:"write raw page content to file (default: stdout via Plain rendering)"\``to`GetPageCmd` (`internal/cli/cli.go:151`)
-- [ ] when `Output != ""`, after fetching, write `page.Content` (raw) to the file via `os.WriteFile`, not via `render.One`. Stdout fallback path stays as it is (full `Plain()` rendering with title + timestamp).
-- [ ] handle `--output -` explicitly as "stdout but raw content (no title prefix)" — useful for piping
-- [ ] add e2e test `TestGetPage_OutputFile`: stub a wysiwyg page, assert file on disk equals `.Content` exactly (no Plain prefix)
-- [ ] add e2e test `TestGetPage_OutputDash`: `--output -` writes raw to stdout
-- [ ] add e2e test `TestGetPage_NoOutput_DefaultUnchanged`: existing behavior preserved
-- [ ] run `go test ./... && go vet ./...` — must pass before Task 5
+- [x] add `Output string \`name:"output" help:"write raw page content to file (default: stdout via Plain rendering)"\``to`GetPageCmd` (`internal/cli/cli.go:151`)
+- [x] when `Output != ""`, after fetching, write `page.Content` (raw) to the file via `os.WriteFile`, not via `render.One`. Stdout fallback path stays as it is (full `Plain()` rendering with title + timestamp).
+- [x] handle `--output -` explicitly as "stdout but raw content (no title prefix)" — useful for piping
+- [x] add e2e test `TestGetPage_OutputFile`: stub a wysiwyg page, assert file on disk equals `.Content` exactly (no Plain prefix)
+- [x] add e2e test `TestGetPage_OutputDash`: `--output -` writes raw to stdout
+- [x] add e2e test `TestGetPage_NoOutput_DefaultUnchanged`: existing behavior preserved
+- [x] run `go test ./... && go vet ./...` — must pass before Task 5
 
 ### Task 5: `--attachments-dir` on `wiki pages get` (full read flow)
 

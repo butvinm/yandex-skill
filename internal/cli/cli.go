@@ -149,7 +149,8 @@ func (c *ListQueuesCmd) Run(g *Globals) error {
 // --- Wiki commands ---
 
 type GetPageCmd struct {
-	Slug string `arg:"" help:"page slug (e.g. team/notes/2026-04-29)"`
+	Slug   string `arg:"" help:"page slug (e.g. team/notes/2026-04-29)"`
+	Output string `name:"output" help:"write raw page content to file ('-' for stdout); default: stdout via Plain rendering"`
 }
 
 func (c *GetPageCmd) Run(g *Globals) error {
@@ -161,7 +162,21 @@ func (c *GetPageCmd) Run(g *Globals) error {
 	if err != nil {
 		return err
 	}
+	if c.Output != "" {
+		return writeRawContent(g.Stdout, c.Output, p.Content)
+	}
 	return render.One(g.Stdout, g.Format(), *p)
+}
+
+// writeRawContent writes content verbatim either to stdout (when output is
+// "-") or to the named file. Used by --output to bypass the title-prefixed
+// Plain() rendering and produce a clean markdown round-trip artifact.
+func writeRawContent(stdout io.Writer, output, content string) error {
+	if output == "-" {
+		_, err := io.WriteString(stdout, content)
+		return err
+	}
+	return os.WriteFile(output, []byte(content), 0o644)
 }
 
 type ListPagesCmd struct {

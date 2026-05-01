@@ -114,6 +114,56 @@ func TestE2E_WikiPagesGet_Plain(t *testing.T) {
 	}
 }
 
+func TestE2E_WikiPagesGet_OutputFile(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `{"id":1,"slug":"team/notes","title":"Notes","page_type":"wysiwyg","content":"# hi\nbody","attributes":{"modified_at":"2026-04-29"}}`)
+	}))
+	defer srv.Close()
+
+	out := filepath.Join(t.TempDir(), "page.md")
+	stdout, stderr, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":         "tok",
+		"YANDEX_CLOUD_ORG_ID":  "org",
+		"YANDEX_WIKI_BASE_URL": srv.URL,
+	}, "", "wiki", "pages", "get", "team/notes", "--output", out)
+
+	if exit != 0 {
+		t.Fatalf("exit=%d stderr=%s", exit, stderr)
+	}
+	if stdout != "" {
+		t.Errorf("--output to file should produce empty stdout, got %q", stdout)
+	}
+	got, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Raw content only — no title prefix, no modified_at line.
+	if string(got) != "# hi\nbody" {
+		t.Errorf("file content = %q", string(got))
+	}
+}
+
+func TestE2E_WikiPagesGet_OutputDash(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `{"id":1,"slug":"team/notes","title":"Notes","page_type":"wysiwyg","content":"# hi\nbody","attributes":{"modified_at":"2026-04-29"}}`)
+	}))
+	defer srv.Close()
+
+	stdout, _, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":         "tok",
+		"YANDEX_CLOUD_ORG_ID":  "org",
+		"YANDEX_WIKI_BASE_URL": srv.URL,
+	}, "", "wiki", "pages", "get", "team/notes", "--output", "-")
+
+	if exit != 0 {
+		t.Fatalf("exit = %d", exit)
+	}
+	// --output - emits raw content to stdout (no title prefix, no trailing newline).
+	if stdout != "# hi\nbody" {
+		t.Errorf("stdout = %q", stdout)
+	}
+}
+
 func TestE2E_WikiPagesCreate_FromBodyFlag(t *testing.T) {
 	var sentBody map[string]string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
