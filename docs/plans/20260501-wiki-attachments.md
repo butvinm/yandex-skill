@@ -152,15 +152,15 @@ Uses the simpler `download_by_url` endpoint — no slug→id needed. Streams bin
 
 Internal package surface only — `UploadAttachment` (next task) calls these. Splitting keeps each function under 30 lines and the test matrix readable.
 
-- [ ] define `uploadSession struct { ID string \`json:"session_id"\`; Status string \`json:"status"\`; StorageType string \`json:"storage_type"\` }`
-- [ ] `(c *Client) createUploadSession(ctx, fileName string, fileSize int64) (*uploadSession, error)` — POST /v1/upload_sessions
-- [ ] `(c *Client) uploadPart(ctx, sessionID string, partNumber int, body io.Reader) error` — PUT via `DoRaw` with `application/octet-stream`, drain+close body
-- [ ] `(c *Client) finishUploadSession(ctx, sessionID string) error` — POST .../finish, no body
-- [ ] hard-code `MaxAttachmentSize = 16 * 1024 * 1024` constant; export it so the CLI layer can pre-check
-- [ ] write unit test for each helper: assert URL, method, content-type, request body shape
-- [ ] write unit test for full happy-path round trip (create → uploadPart → finish) using a single httptest server with a path switch
-- [ ] write unit test: 5xx during uploadPart surfaces `*APIError` with the response status preserved
-- [ ] run `go test ./internal/wiki/...` — must pass before Task 5
+- [x] define `uploadSession struct { ID string \`json:"session_id"\`; Status string \`json:"status"\`; StorageType string \`json:"storage_type"\` }`
+- [x] `(c *Client) createUploadSession(ctx, fileName string, fileSize int64) (*uploadSession, error)` — POST /v1/upload_sessions
+- [x] `(c *Client) uploadPart(ctx, sessionID string, partNumber int, body io.Reader) error` — PUT via `DoRaw` with `application/octet-stream`, drain+close body
+- [x] `(c *Client) finishUploadSession(ctx, sessionID string) error` — POST .../finish, no body
+- [x] hard-code `MaxAttachmentSize = 16 * 1024 * 1024` constant; export it so the CLI layer can pre-check (lives in `attachments.go` from Task 2)
+- [x] write unit test for each helper: assert URL, method, content-type, request body shape
+- [x] write unit test for full happy-path round trip (create → uploadPart → finish) using a single httptest server with a path switch
+- [x] write unit test: 5xx during uploadPart surfaces `*APIError` with the response status preserved
+- [x] run `go test ./internal/wiki/...` — must pass before Task 5
 
 ### Task 5: Upload attachment — public API + CLI command
 
