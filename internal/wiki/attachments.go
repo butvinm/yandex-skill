@@ -3,6 +3,7 @@ package wiki
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -53,6 +54,52 @@ func humanSize(n int64) string {
 type attachmentsPage struct {
 	Results    []Attachment `json:"results"`
 	NextCursor string       `json:"next_cursor"`
+}
+
+// findAttachmentByName returns the unique match for filename on pageSlug.
+// Errors if not found or if more than one attachment shares the name.
+func (c *Client) findAttachmentByName(ctx context.Context, pageSlug, filename string) (*Attachment, error) {
+	atts, err := c.ListAttachments(ctx, pageSlug)
+	if err != nil {
+		return nil, err
+	}
+	var matches []Attachment
+	for _, a := range atts {
+		if a.Name == filename {
+			matches = append(matches, a)
+		}
+	}
+	switch len(matches) {
+	case 0:
+		return nil, fmt.Errorf("attachment %q not found on page %q", filename, pageSlug)
+	case 1:
+		return &matches[0], nil
+	default:
+		return nil, fmt.Errorf("multiple attachments named %q on %q; disambiguate via --json list", filename, pageSlug)
+	}
+}
+
+// DownloadAttachment streams an attachment's bytes to w. The unique-name
+// precondition (and check_status==ready guard) is enforced before issuing
+// the binary GET so failures do not leak partial data to w.
+func (c *Client) DownloadAttachment(ctx context.Context, pageSlug, filename string, w io.Writer) error {
+	att, err := c.findAttachmentByName(ctx, pageSlug, filename)
+	if err != nil {
+		return err
+	}
+	if att.CheckStatus != "" && att.CheckStatus != "ready" {
+		return fmt.Errorf("attachment %q has check_status=%s; refusing to download", filename, att.CheckStatus)
+	}
+	q := url.Values{}
+	q.Set("url", pageSlug+"/"+filename)
+	q.Set("download", "true")
+	resp, err := c.DoRaw(ctx, http.MethodGet, "/v1/pages/attachments/download_by_url?"+q.Encode(), "", nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	_, err = io.Copy(w, resp.Body)
+	return err
 }
 
 func (c *Client) ListAttachments(ctx context.Context, pageSlug string) ([]Attachment, error) {

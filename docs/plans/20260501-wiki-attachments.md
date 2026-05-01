@@ -131,16 +131,17 @@ Adds `Attachment` struct implementing both `Plainer` and `Rower` (List uses `Row
 
 Uses the simpler `download_by_url` endpoint — no slug→id needed. Streams binary to the writer. Refuses to write when `check_status != ready`.
 
-- [ ] add `(*Client).DownloadAttachment(ctx, pageSlug, filename string, w io.Writer) error`: build url-encoded `?url=<slug>/<filename>&download=true`, call `DoRaw`, copy resp.Body to w (always close body)
-- [ ] before streaming, check `check_status` — but `download_by_url` returns binary not metadata, so the check happens via a precondition `ListAttachments` lookup; if duplicate filename on the page, fail with `multiple attachments named %q on %q; disambiguate via --json list`
-- [ ] add `DownloadAttachmentCmd { PageSlug, Filename string; Output string \`name:"output" default:"-"\` }`; Run resolves writer (stdout if `-`, else `os.Create`)
-- [ ] when `Output == "-"` and `Stdout` is the real os.Stdout AND it is a TTY, still allow it (no terminal-corruption guard — same as `cat`); document in SKILL.md
-- [ ] write unit test: list returns one attachment with `check_status=ready`, then download endpoint returns bytes; assert bytes are written through unchanged
-- [ ] write unit test: `check_status=infected` → no HTTP download call made, error mentions status
-- [ ] write unit test: two attachments with same name → no HTTP download call, error message names the conflict
-- [ ] write e2e test (plain): download to a temp file, assert file contents byte-for-byte
-- [ ] write e2e test (plain, stdout): download to a `bytes.Buffer` via `--output -`, assert equality
-- [ ] run `go test ./...` — must pass before Task 4
+- [x] add `(*Client).DownloadAttachment(ctx, pageSlug, filename string, w io.Writer) error`: build url-encoded `?url=<slug>/<filename>&download=true`, call `DoRaw`, copy resp.Body to w (always close body)
+- [x] before streaming, check `check_status` — `download_by_url` returns binary not metadata, so a `findAttachmentByName` precondition runs first; duplicate name → `multiple attachments named %q on %q; disambiguate via --json list`; missing → `attachment %q not found on page %q`
+- [x] add `DownloadAttachmentCmd { PageSlug, Filename string; Output string \`name:"output" default:"-"\` }`; Run resolves writer (stdout if `-`, else `os.Create`)
+- [x] no TTY guard for `--output -` (same default as `cat`); the SKILL.md guidance update lands in Task 8
+- [x] write unit test: list returns one attachment with `check_status=ready`, then download endpoint returns bytes; assert bytes are written through unchanged
+- [x] write unit test: `check_status=infected` → no HTTP download call made, error mentions status
+- [x] write unit test: two attachments with same name → no HTTP download call, error message names the conflict
+- [x] write unit test: missing filename → no HTTP download call, error mentions "not found"
+- [x] write e2e test (plain): download to a temp file, assert file contents byte-for-byte
+- [x] write e2e test (plain, stdout): download to a `bytes.Buffer` via `--output -`, assert equality
+- [x] run `go test ./...` — must pass before Task 4
 
 ### Task 4: Upload sessions — private 3-step helper
 

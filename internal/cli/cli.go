@@ -67,7 +67,8 @@ type WikiPagesCmd struct {
 }
 
 type WikiAttachmentsCmd struct {
-	List ListAttachmentsCmd `cmd:"" help:"list attachments on a page"`
+	List     ListAttachmentsCmd     `cmd:"" help:"list attachments on a page"`
+	Download DownloadAttachmentCmd  `cmd:"" help:"download an attachment by page slug + filename"`
 }
 
 type VersionCmd struct{}
@@ -235,6 +236,31 @@ func (c *ListAttachmentsCmd) Run(g *Globals) error {
 		return err
 	}
 	return render.Many(g.Stdout, g.Format(), atts)
+}
+
+type DownloadAttachmentCmd struct {
+	PageSlug string `arg:"" name:"page-slug" help:"page slug"`
+	Filename string `arg:"" name:"filename" help:"attachment filename"`
+	Output   string `name:"output" default:"-" help:"output path; '-' for stdout"`
+}
+
+func (c *DownloadAttachmentCmd) Run(g *Globals) error {
+	cfg, err := auth.Load()
+	if err != nil {
+		return err
+	}
+	var w io.Writer
+	if c.Output == "-" {
+		w = g.Stdout
+	} else {
+		f, err := os.Create(c.Output)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		w = f
+	}
+	return wiki.New(cfg).DownloadAttachment(g.Ctx, c.PageSlug, c.Filename, w)
 }
 
 // Run parses argv and dispatches to the matched command. Returns the exit code.

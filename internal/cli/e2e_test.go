@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -261,6 +263,67 @@ func TestE2E_WikiAttachmentsList_JSON(t *testing.T) {
 		if !strings.Contains(stdout, want) {
 			t.Errorf("stdout missing %s: %q", want, stdout)
 		}
+	}
+}
+
+func TestE2E_WikiAttachmentsDownload_ToFile(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/pages":
+			_, _ = io.WriteString(w, `{"id":42,"slug":"team/notes","title":"T"}`)
+		case "/v1/pages/42/attachments":
+			_, _ = io.WriteString(w, `{"results":[{"id":1,"name":"diagram.png","check_status":"ready"}]}`)
+		case "/v1/pages/attachments/download_by_url":
+			_, _ = w.Write([]byte("PNGDATA"))
+		default:
+			t.Errorf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+
+	out := filepath.Join(t.TempDir(), "diagram.png")
+	_, stderr, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":         "tok",
+		"YANDEX_CLOUD_ORG_ID":  "org",
+		"YANDEX_WIKI_BASE_URL": srv.URL,
+	}, "", "wiki", "attachments", "download", "team/notes", "diagram.png", "--output", out)
+
+	if exit != 0 {
+		t.Fatalf("exit=%d stderr=%s", exit, stderr)
+	}
+	got, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "PNGDATA" {
+		t.Errorf("file = %q", got)
+	}
+}
+
+func TestE2E_WikiAttachmentsDownload_ToStdout(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/pages":
+			_, _ = io.WriteString(w, `{"id":42,"slug":"team/notes","title":"T"}`)
+		case "/v1/pages/42/attachments":
+			_, _ = io.WriteString(w, `{"results":[{"id":1,"name":"draft.md","check_status":"ready"}]}`)
+		case "/v1/pages/attachments/download_by_url":
+			_, _ = w.Write([]byte("# hello"))
+		}
+	}))
+	defer srv.Close()
+
+	stdout, _, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":         "tok",
+		"YANDEX_CLOUD_ORG_ID":  "org",
+		"YANDEX_WIKI_BASE_URL": srv.URL,
+	}, "", "wiki", "attachments", "download", "team/notes", "draft.md")
+
+	if exit != 0 {
+		t.Fatalf("exit = %d", exit)
+	}
+	if stdout != "# hello" {
+		t.Errorf("stdout = %q", stdout)
 	}
 }
 

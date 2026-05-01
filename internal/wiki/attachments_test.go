@@ -1,6 +1,7 @@
 package wiki
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"net/http"
@@ -81,6 +82,105 @@ func TestListAttachments_ResolvesSlugThenPaginates(t *testing.T) {
 	}
 	if len(got) != 2 || got[0].Name != "a.png" || got[1].Name != "b.pdf" {
 		t.Errorf("got = %+v", got)
+	}
+}
+
+func TestDownloadAttachment_HappyPath(t *testing.T) {
+	c, _ := newWiki(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/pages":
+			_, _ = io.WriteString(w, `{"id":42,"slug":"team/notes","title":"T"}`)
+		case "/v1/pages/42/attachments":
+			_, _ = io.WriteString(w, `{"results":[{"id":1,"name":"diagram.png","check_status":"ready"}]}`)
+		case "/v1/pages/attachments/download_by_url":
+			if r.URL.Query().Get("url") != "team/notes/diagram.png" {
+				t.Errorf("url = %s", r.URL.Query().Get("url"))
+			}
+			if r.URL.Query().Get("download") != "true" {
+				t.Errorf("download = %s", r.URL.Query().Get("download"))
+			}
+			_, _ = w.Write([]byte("\x89PNG\x0d\x0a"))
+		default:
+			t.Errorf("unexpected path %s", r.URL.Path)
+		}
+	})
+
+	var buf bytes.Buffer
+	if err := c.DownloadAttachment(context.Background(), "team/notes", "diagram.png", &buf); err != nil {
+		t.Fatal(err)
+	}
+	if buf.String() != "\x89PNG\x0d\x0a" {
+		t.Errorf("body = %q", buf.String())
+	}
+}
+
+func TestDownloadAttachment_NotReady(t *testing.T) {
+	called := false
+	c, _ := newWiki(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/pages":
+			_, _ = io.WriteString(w, `{"id":42,"slug":"team/notes","title":"T"}`)
+		case "/v1/pages/42/attachments":
+			_, _ = io.WriteString(w, `{"results":[{"id":1,"name":"infected.exe","check_status":"infected"}]}`)
+		case "/v1/pages/attachments/download_by_url":
+			called = true
+			w.WriteHeader(500)
+		}
+	})
+
+	var buf bytes.Buffer
+	err := c.DownloadAttachment(context.Background(), "team/notes", "infected.exe", &buf)
+	if err == nil {
+		t.Fatal("want error")
+	}
+	if !strings.Contains(err.Error(), "infected") {
+		t.Errorf("err = %v", err)
+	}
+	if called {
+		t.Error("download endpoint should not have been hit")
+	}
+	if buf.Len() != 0 {
+		t.Error("buf should be empty on refusal")
+	}
+}
+
+func TestDownloadAttachment_DuplicateNames(t *testing.T) {
+	called := false
+	c, _ := newWiki(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/pages":
+			_, _ = io.WriteString(w, `{"id":42,"slug":"team/notes","title":"T"}`)
+		case "/v1/pages/42/attachments":
+			_, _ = io.WriteString(w, `{"results":[{"id":1,"name":"x","check_status":"ready"},{"id":2,"name":"x","check_status":"ready"}]}`)
+		case "/v1/pages/attachments/download_by_url":
+			called = true
+		}
+	})
+
+	err := c.DownloadAttachment(context.Background(), "team/notes", "x", io.Discard)
+	if err == nil {
+		t.Fatal("want error")
+	}
+	if !strings.Contains(err.Error(), "multiple attachments named") {
+		t.Errorf("err = %v", err)
+	}
+	if called {
+		t.Error("download must not run on ambiguous match")
+	}
+}
+
+func TestDownloadAttachment_NotFound(t *testing.T) {
+	c, _ := newWiki(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/pages":
+			_, _ = io.WriteString(w, `{"id":42,"slug":"team/notes","title":"T"}`)
+		case "/v1/pages/42/attachments":
+			_, _ = io.WriteString(w, `{"results":[]}`)
+		}
+	})
+	err := c.DownloadAttachment(context.Background(), "team/notes", "missing.png", io.Discard)
+	if err == nil || !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("err = %v", err)
 	}
 }
 
