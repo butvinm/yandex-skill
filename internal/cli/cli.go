@@ -234,7 +234,8 @@ func (c *CreatePageCmd) Run(g *Globals) error {
 }
 
 type UpdatePageCmd struct {
-	Slug string `arg:"" help:"page slug"`
+	Slug           string `arg:"" help:"page slug"`
+	AttachmentsDir string `name:"attachments-dir" help:"upload referenced local files and rewrite content URLs to server form (YFM markdown only; refuses grid pages, warns on legacy)"`
 	BodyInput
 }
 
@@ -243,11 +244,22 @@ func (c *UpdatePageCmd) Run(g *Globals) error {
 	if err != nil {
 		return err
 	}
+	client := wiki.New(cfg)
 	body, err := c.Read(g.Stdin)
 	if err != nil {
 		return err
 	}
-	p, err := wiki.New(cfg).UpdatePage(g.Ctx, c.Slug, body)
+	if c.AttachmentsDir != "" {
+		page, err := client.GetPage(g.Ctx, c.Slug)
+		if err != nil {
+			return err
+		}
+		body, err = syncAttachmentsForWrite(g.Ctx, client, page, body, c.AttachmentsDir, g.Stderr)
+		if err != nil {
+			return err
+		}
+	}
+	p, err := client.UpdatePage(g.Ctx, c.Slug, body)
 	if err != nil {
 		return err
 	}

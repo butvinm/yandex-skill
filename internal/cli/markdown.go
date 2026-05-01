@@ -149,3 +149,66 @@ func syncAttachmentsForGet(ctx context.Context, client *wiki.Client, page *wiki.
 	}
 	return rewriteServerToLocal(page.Content, page.Slug, attachmentsDir), nil
 }
+
+// syncAttachmentsForWrite uploads local attachment files referenced from
+// localContent that aren't already present on the page, then returns the
+// content with `<attachmentsDir>/<X>` references rewritten to the server-
+// returned download URLs.
+//
+// Match-by-basename: a local `att/foo.png` is considered "already on the
+// server" iff there is an existing attachment whose `path.Base(download_url)
+// == "foo.png"`. The byte content isn't compared (the API doesn't surface
+// a checksum), so re-uploading after editing the local file requires the
+// user to delete the server attachment first via `wiki attachments delete`.
+//
+// Refuses grid pages outright; warns on legacy `page` and unknown types.
+// Does NOT delete server attachments that aren't referenced locally —
+// one-directional drift may be intentional.
+func syncAttachmentsForWrite(ctx context.Context, client *wiki.Client, page *wiki.Page, localContent, attachmentsDir string, stderr io.Writer) (string, error) {
+	if err := refuseGrid(page.PageType); err != nil {
+		return "", err
+	}
+	warnNonWysiwyg(page.PageType, stderr)
+	basenames := findLocalAttachmentRefs(localContent, attachmentsDir)
+	if len(basenames) == 0 {
+		// No local refs → nothing to upload, rewrite is a no-op.
+		return localContent, nil
+	}
+	atts, err := client.ListAttachments(ctx, page.Slug)
+	if err != nil {
+		return "", fmt.Errorf("list attachments: %w", err)
+	}
+	serverURLByBasename := make(map[string]string, len(atts))
+	for _, a := range atts {
+		serverURLByBasename[path.Base(a.DownloadURL)] = a.DownloadURL
+	}
+	urlByBasename := make(map[string]string, len(basenames))
+	for _, b := range basenames {
+		if url, ok := serverURLByBasename[b]; ok {
+			urlByBasename[b] = url
+			continue
+		}
+		src := filepath.Join(attachmentsDir, b)
+		uploaded, err := uploadLocalFile(ctx, client, page.Slug, src, b)
+		if err != nil {
+			return "", fmt.Errorf("upload %s: %w", b, err)
+		}
+		urlByBasename[b] = uploaded.DownloadURL
+	}
+	return rewriteLocalToServer(localContent, attachmentsDir, urlByBasename), nil
+}
+
+// uploadLocalFile is a thin wrapper around wiki.Client.UploadAttachment that
+// handles the file open/stat/close boilerplate.
+func uploadLocalFile(ctx context.Context, client *wiki.Client, slug, src, name string) (*wiki.Attachment, error) {
+	f, err := os.Open(src)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	return client.UploadAttachment(ctx, slug, name, f, info.Size())
+}

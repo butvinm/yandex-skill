@@ -316,6 +316,127 @@ func TestE2E_WikiPagesGet_AttachmentsDir_Grid_RefuseWithError(t *testing.T) {
 	}
 }
 
+func TestE2E_WikiPagesUpdate_AttachmentsDir_NewFile(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "foo.png"), []byte("PNG"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	bodyFile := filepath.Join(dir, "page.md")
+	if err := os.WriteFile(bodyFile, []byte("![](" + dir + "/foo.png)"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var sentUpdateBody map[string]string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/pages":
+			_, _ = io.WriteString(w, `{"id":42,"slug":"u/p","title":"T","page_type":"wysiwyg","content":""}`)
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/pages/42/attachments":
+			_, _ = io.WriteString(w, `{"results":[]}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/upload_sessions":
+			_, _ = io.WriteString(w, `{"session_id":"u-1","status":"not_started"}`)
+		case r.Method == http.MethodPut && r.URL.Path == "/v1/upload_sessions/u-1/upload_part":
+			w.WriteHeader(200)
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/upload_sessions/u-1/finish":
+			w.WriteHeader(200)
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/pages/42/attachments":
+			_, _ = io.WriteString(w, `{"results":[{"id":7,"name":"foo.png","download_url":"/u/p/.files/foomangled.png","check_status":"ready"}]}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/pages/42":
+			buf, _ := io.ReadAll(r.Body)
+			_ = jsonUnmarshal(buf, &sentUpdateBody)
+			_, _ = io.WriteString(w, `{"id":42,"slug":"u/p","title":"T","content":""}`)
+		default:
+			t.Errorf("unexpected: %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(404)
+		}
+	}))
+	defer srv.Close()
+
+	stdout, stderr, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":         "tok",
+		"YANDEX_CLOUD_ORG_ID":  "org",
+		"YANDEX_WIKI_BASE_URL": srv.URL,
+	}, "", "wiki", "pages", "update", "u/p", "--body-file", bodyFile, "--attachments-dir", dir)
+
+	if exit != 0 {
+		t.Fatalf("exit=%d stderr=%s", exit, stderr)
+	}
+	if sentUpdateBody["content"] != "![](/u/p/.files/foomangled.png)" {
+		t.Errorf("update content not rewritten: %q", sentUpdateBody["content"])
+	}
+	if !strings.Contains(stdout, "updated: u/p") {
+		t.Errorf("stdout = %q", stdout)
+	}
+}
+
+func TestE2E_WikiPagesUpdate_AttachmentsDir_ExistingFile_Skips(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "foo.png"), []byte("PNG"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	bodyFile := filepath.Join(dir, "page.md")
+	if err := os.WriteFile(bodyFile, []byte("![](" + dir + "/foo.png)"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var uploadCalled bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/pages":
+			_, _ = io.WriteString(w, `{"id":42,"slug":"u/p","title":"T","page_type":"wysiwyg","content":""}`)
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/pages/42/attachments":
+			_, _ = io.WriteString(w, `{"results":[{"id":1,"name":"foo.png","download_url":"/u/p/.files/foo.png","check_status":"ready"}]}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/upload_sessions":
+			uploadCalled = true
+			w.WriteHeader(500)
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/pages/42":
+			_, _ = io.WriteString(w, `{"id":42,"slug":"u/p","title":"T","content":""}`)
+		default:
+			t.Errorf("unexpected: %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(404)
+		}
+	}))
+	defer srv.Close()
+
+	_, stderr, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":         "tok",
+		"YANDEX_CLOUD_ORG_ID":  "org",
+		"YANDEX_WIKI_BASE_URL": srv.URL,
+	}, "", "wiki", "pages", "update", "u/p", "--body-file", bodyFile, "--attachments-dir", dir)
+
+	if exit != 0 {
+		t.Fatalf("exit=%d stderr=%s", exit, stderr)
+	}
+	if uploadCalled {
+		t.Errorf("upload should be skipped when attachment already exists by basename")
+	}
+}
+
+func TestE2E_WikiPagesUpdate_AttachmentsDir_Grid_Refuses(t *testing.T) {
+	dir := t.TempDir()
+	bodyFile := filepath.Join(dir, "page.md")
+	if err := os.WriteFile(bodyFile, []byte("hello"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `{"id":42,"slug":"g","title":"G","page_type":"grid","content":null}`)
+	}))
+	defer srv.Close()
+
+	_, stderr, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":         "tok",
+		"YANDEX_CLOUD_ORG_ID":  "org",
+		"YANDEX_WIKI_BASE_URL": srv.URL,
+	}, "", "wiki", "pages", "update", "g", "--body-file", bodyFile, "--attachments-dir", dir)
+
+	if exit != 1 {
+		t.Errorf("exit = %d", exit)
+	}
+	if !strings.Contains(stderr, "page_type=grid") {
+		t.Errorf("expected grid refusal in stderr, got %q", stderr)
+	}
+}
+
 func TestE2E_WikiPagesCreate_FromBodyFlag(t *testing.T) {
 	var sentBody map[string]string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

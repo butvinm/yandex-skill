@@ -337,6 +337,112 @@ func TestSyncAttachmentsForGet_Grid_Refuses(t *testing.T) {
 	}
 }
 
+// fakeWikiForWrite serves the endpoints syncAttachmentsForWrite uses:
+// page resolve, attachment list, and (when upload happens) the 3-step
+// upload-session protocol + attach-to-page binding. The handler records
+// the upload-session POSTs in `uploads` so callers can assert "no upload
+// happened" for the no-reupload case. existingAttachments seeds the
+// list response; uploadResult is what the POST /attachments returns.
+func fakeWikiForWrite(t *testing.T, pageID int64, pageSlug, existingAttsJSON string, uploadResultJSON string, uploads *[]string) *wiki.Client {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		key := r.Method + " " + r.URL.Path
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/pages":
+			fmt.Fprintf(w, `{"id":%d,"slug":%q,"title":"T","page_type":"wysiwyg","content":""}`, pageID, pageSlug)
+		case r.Method == http.MethodGet && r.URL.Path == fmt.Sprintf("/v1/pages/%d/attachments", pageID):
+			io.WriteString(w, existingAttsJSON)
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/upload_sessions":
+			*uploads = append(*uploads, key)
+			io.WriteString(w, `{"session_id":"u-1","status":"not_started"}`)
+		case r.Method == http.MethodPut && r.URL.Path == "/v1/upload_sessions/u-1/upload_part":
+			*uploads = append(*uploads, key)
+			w.WriteHeader(200)
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/upload_sessions/u-1/finish":
+			*uploads = append(*uploads, key)
+			w.WriteHeader(200)
+		case r.Method == http.MethodPost && r.URL.Path == fmt.Sprintf("/v1/pages/%d/attachments", pageID):
+			*uploads = append(*uploads, key)
+			io.WriteString(w, uploadResultJSON)
+		default:
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(404)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return wiki.New(auth.Config{Token: "t", OrgID: "o", WikiBaseURL: srv.URL})
+}
+
+func TestSyncAttachmentsForWrite_NewAttachment_Uploads(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "foo.png"), []byte("PNG"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var uploads []string
+	uploadResult := `{"results":[{"id":7,"name":"foo.png","download_url":"/u/p/.files/foomangled.png","check_status":"ready"}]}`
+	client := fakeWikiForWrite(t, 42, "u/p", `{"results":[]}`, uploadResult, &uploads)
+	page := &wiki.Page{ID: 42, Slug: "u/p", PageType: wiki.PageTypeWysiwyg}
+	local := "![](" + dir + "/foo.png)"
+
+	got, err := syncAttachmentsForWrite(context.Background(), client, page, local, dir, io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "![](/u/p/.files/foomangled.png)"
+	if got != want {
+		t.Errorf("got  %q\nwant %q", got, want)
+	}
+	if len(uploads) != 4 { // session start, upload part, finish, attach
+		t.Errorf("expected 4 upload calls, got %d: %v", len(uploads), uploads)
+	}
+}
+
+func TestSyncAttachmentsForWrite_ExistingAttachment_NoReupload(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "foo.png"), []byte("PNG"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var uploads []string
+	existing := `{"results":[{"id":1,"name":"foo.png","download_url":"/u/p/.files/foo.png","check_status":"ready"}]}`
+	client := fakeWikiForWrite(t, 42, "u/p", existing, "", &uploads)
+	page := &wiki.Page{ID: 42, Slug: "u/p", PageType: wiki.PageTypeWysiwyg}
+	local := "![](" + dir + "/foo.png)"
+
+	got, err := syncAttachmentsForWrite(context.Background(), client, page, local, dir, io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "![](/u/p/.files/foo.png)"
+	if got != want {
+		t.Errorf("got %q want %q", got, want)
+	}
+	if len(uploads) != 0 {
+		t.Errorf("expected no uploads when attachment already exists, got %v", uploads)
+	}
+}
+
+func TestSyncAttachmentsForWrite_Grid_Refuses(t *testing.T) {
+	page := &wiki.Page{Slug: "g", PageType: wiki.PageTypeGrid}
+	_, err := syncAttachmentsForWrite(context.Background(), nil, page, "![](att/x.png)", "att", io.Discard)
+	if err == nil || !strings.Contains(err.Error(), "page_type=grid") {
+		t.Fatalf("want grid refusal, got %v", err)
+	}
+}
+
+func TestSyncAttachmentsForWrite_NoLocalRefs_NoUploads_NoRewrite(t *testing.T) {
+	// nil client: if the orchestrator dereferences it, the test will panic
+	// — proving that no API calls are made when there are no local refs.
+	page := &wiki.Page{Slug: "u/p", PageType: wiki.PageTypeWysiwyg}
+	body := "just plain markdown\nno attachments referenced"
+	got, err := syncAttachmentsForWrite(context.Background(), nil, page, body, "att", io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != body {
+		t.Errorf("body should be unchanged, got %q", got)
+	}
+}
+
 func TestSyncAttachmentsForGet_Page_Warns(t *testing.T) {
 	atts := `{"results":[]}`
 	client := fakeWikiForGet(t, 7, "homepage", atts, nil)

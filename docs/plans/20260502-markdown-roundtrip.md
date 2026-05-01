@@ -183,22 +183,22 @@ API endpoints already in the client (no new ones for this feature):
 - Modify: `internal/cli/markdown_test.go`
 - Modify: `internal/cli/e2e_test.go`
 
-- [ ] add `AttachmentsDir string \`name:"attachments-dir"\``to`UpdatePageCmd`
-- [ ] add orchestrator `func syncAttachmentsForWrite(ctx, client *wiki.Client, page *wiki.Page, localContent, attachmentsDir string, stderr io.Writer) (rewrittenContent string, err error)`:
+- [x] add `AttachmentsDir string \`name:"attachments-dir"\``to`UpdatePageCmd`
+- [x] add orchestrator `func syncAttachmentsForWrite(ctx, client *wiki.Client, page *wiki.Page, localContent, attachmentsDir string, stderr io.Writer) (rewrittenContent string, err error)`:
   - same page-type guard as get (refuse grid; warn else)
   - call `findLocalAttachmentRefs(localContent, attachmentsDir)` → list of basenames
   - list current server attachments via `client.ListAttachments`; build `serverByBasename map[string]*Attachment` keyed by `path.Base(att.DownloadURL)` (canonical)
   - for each local basename: if not in `serverByBasename`, upload from `<dir>/<basename>` via existing `UploadAttachment`; capture returned `download_url`. If already present, reuse the existing URL.
   - build `urlByBasename map[string]string` from union; rewrite via `rewriteLocalToServer`
-- [ ] hook into `UpdatePageCmd.Run`: if `AttachmentsDir != ""`, after `BodyInput.Read`, run sync; pass rewritten content to `UpdatePage`
-- [ ] unit test `TestSyncAttachmentsForWrite_NewAttachment_Uploads`
-- [ ] unit test `TestSyncAttachmentsForWrite_ExistingAttachment_NoReupload` — exact basename match by URL, not by Name
-- [ ] unit test `TestSyncAttachmentsForWrite_Grid_Refuses`
-- [ ] unit test `TestSyncAttachmentsForWrite_NoLocalRefs_NoUploads_NoRewrite`
-- [ ] e2e `TestUpdatePage_AttachmentsDir_NewFile`: local file referenced + uploaded; final POST body has rewritten URL
-- [ ] e2e `TestUpdatePage_AttachmentsDir_ExistingFile_Skips`: server already has matching attachment; assert no PUT to upload-sessions endpoint
-- [ ] e2e `TestUpdatePage_AttachmentsDir_Grid_Refuses`
-- [ ] run `go test ./... && go vet ./...` — must pass before Task 7
+- [x] hook into `UpdatePageCmd.Run`: if `AttachmentsDir != ""`, after `BodyInput.Read`, run sync; pass rewritten content to `UpdatePage`
+- [x] unit test `TestSyncAttachmentsForWrite_NewAttachment_Uploads`
+- [x] unit test `TestSyncAttachmentsForWrite_ExistingAttachment_NoReupload` — exact basename match by URL, not by Name
+- [x] unit test `TestSyncAttachmentsForWrite_Grid_Refuses`
+- [x] unit test `TestSyncAttachmentsForWrite_NoLocalRefs_NoUploads_NoRewrite`
+- [x] e2e `TestUpdatePage_AttachmentsDir_NewFile`: local file referenced + uploaded; final POST body has rewritten URL
+- [x] e2e `TestUpdatePage_AttachmentsDir_ExistingFile_Skips`: server already has matching attachment; assert no PUT to upload-sessions endpoint
+- [x] e2e `TestUpdatePage_AttachmentsDir_Grid_Refuses`
+- [x] run `go test ./... && go vet ./...` — must pass before Task 7
 
 ### Task 7: `--attachments-dir` on `wiki pages create`
 
