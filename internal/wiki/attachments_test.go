@@ -3,6 +3,7 @@ package wiki
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
@@ -181,6 +182,140 @@ func TestDownloadAttachment_NotFound(t *testing.T) {
 	err := c.DownloadAttachment(context.Background(), "team/notes", "missing.png", io.Discard)
 	if err == nil || !strings.Contains(err.Error(), "not found") {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestUploadAttachment_FullFlow(t *testing.T) {
+	var calls []string
+	c, _ := newWiki(t, func(w http.ResponseWriter, r *http.Request) {
+		key := r.Method + " " + r.URL.Path
+		calls = append(calls, key)
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/pages":
+			_, _ = io.WriteString(w, `{"id":42,"slug":"team/notes","title":"T"}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/upload_sessions":
+			_, _ = io.WriteString(w, `{"session_id":"u-1","status":"not_started"}`)
+		case r.Method == http.MethodPut && r.URL.Path == "/v1/upload_sessions/u-1/upload_part":
+			body, _ := io.ReadAll(r.Body)
+			if string(body) != "PNGDATA" {
+				t.Errorf("part body = %q", body)
+			}
+			w.WriteHeader(200)
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/upload_sessions/u-1/finish":
+			w.WriteHeader(200)
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/pages/42/attachments":
+			var sent attachReq
+			_ = json.NewDecoder(r.Body).Decode(&sent)
+			if len(sent.UploadSessions) != 1 || sent.UploadSessions[0] != "u-1" {
+				t.Errorf("attach req = %+v", sent)
+			}
+			_, _ = io.WriteString(w, `{"results":[{"id":7,"name":"diagram.png","size":7,"check_status":"ready"}]}`)
+		default:
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+		}
+	})
+
+	got, err := c.UploadAttachment(context.Background(), "team/notes", "diagram.png", strings.NewReader("PNGDATA"), 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ID != 7 || got.Name != "diagram.png" {
+		t.Errorf("got = %+v", got)
+	}
+	wantOrder := []string{
+		"GET /v1/pages",
+		"POST /v1/upload_sessions",
+		"PUT /v1/upload_sessions/u-1/upload_part",
+		"POST /v1/upload_sessions/u-1/finish",
+		"POST /v1/pages/42/attachments",
+	}
+	if len(calls) != len(wantOrder) {
+		t.Fatalf("calls = %v", calls)
+	}
+	for i, w := range wantOrder {
+		if calls[i] != w {
+			t.Errorf("call[%d] = %s, want %s", i, calls[i], w)
+		}
+	}
+}
+
+func TestUploadAttachment_RejectsOversize(t *testing.T) {
+	called := false
+	c, _ := newWiki(t, func(w http.ResponseWriter, r *http.Request) {
+		called = true
+	})
+	_, err := c.UploadAttachment(context.Background(), "team/notes", "big.bin", strings.NewReader(""), MaxAttachmentSize+1)
+	if err == nil || !strings.Contains(err.Error(), "file too large") {
+		t.Fatalf("err = %v", err)
+	}
+	if called {
+		t.Error("no HTTP call should be made when size exceeds cap")
+	}
+}
+
+func TestDeleteAttachment_HappyPath(t *testing.T) {
+	deleteCalled := false
+	c, _ := newWiki(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/pages":
+			_, _ = io.WriteString(w, `{"id":42,"slug":"team/notes","title":"T"}`)
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/pages/42/attachments":
+			_, _ = io.WriteString(w, `{"results":[{"id":7,"name":"x.png"}]}`)
+		case r.Method == http.MethodDelete && r.URL.Path == "/v1/pages/42/attachments/7":
+			deleteCalled = true
+			w.WriteHeader(204)
+		default:
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+		}
+	})
+
+	if err := c.DeleteAttachment(context.Background(), "team/notes", "x.png"); err != nil {
+		t.Fatal(err)
+	}
+	if !deleteCalled {
+		t.Error("DELETE not issued")
+	}
+}
+
+func TestDeleteAttachment_NotFound(t *testing.T) {
+	deleteCalled := false
+	c, _ := newWiki(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/pages":
+			_, _ = io.WriteString(w, `{"id":42,"slug":"team/notes","title":"T"}`)
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/pages/42/attachments":
+			_, _ = io.WriteString(w, `{"results":[]}`)
+		case r.Method == http.MethodDelete:
+			deleteCalled = true
+		}
+	})
+	err := c.DeleteAttachment(context.Background(), "team/notes", "missing")
+	if err == nil || !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("err = %v", err)
+	}
+	if deleteCalled {
+		t.Error("DELETE should not run on miss")
+	}
+}
+
+func TestDeleteAttachment_DuplicateNames(t *testing.T) {
+	deleteCalled := false
+	c, _ := newWiki(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/pages":
+			_, _ = io.WriteString(w, `{"id":42,"slug":"team/notes","title":"T"}`)
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/pages/42/attachments":
+			_, _ = io.WriteString(w, `{"results":[{"id":1,"name":"x"},{"id":2,"name":"x"}]}`)
+		case r.Method == http.MethodDelete:
+			deleteCalled = true
+		}
+	})
+	err := c.DeleteAttachment(context.Background(), "team/notes", "x")
+	if err == nil || !strings.Contains(err.Error(), "multiple attachments named") {
+		t.Fatalf("err = %v", err)
+	}
+	if deleteCalled {
+		t.Error("DELETE must not run on ambiguity")
 	}
 }
 

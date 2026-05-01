@@ -173,19 +173,20 @@ Internal package surface only — `UploadAttachment` (next task) calls these. Sp
 
 Glues the upload-sessions helper to the page-attach call. Returns the resulting `Attachment` so the CLI can print a `confirmed: <name>` line.
 
-- [ ] `(c *Client) UploadAttachment(ctx, pageSlug, fileName string, body io.Reader, size int64) (*Attachment, error)`:
+- [x] `(c *Client) UploadAttachment(ctx, pageSlug, fileName string, body io.Reader, size int64) (*Attachment, error)`:
   - reject `size > MaxAttachmentSize` with a clear error mentioning the cap in MB
   - GetPage → resolve id
   - createUploadSession(fileName, size) → uploadPart(1, body) → finishUploadSession
   - POST /v1/pages/{id}/attachments with `{upload_sessions:[id]}` → decode `{results: [...]}`, return the first result
-- [ ] `UploadAttachmentCmd { PageSlug string \`arg\`; File string \`name:"file" required\`; Name string \`name:"name"\` }`; Run opens the file with `os.Open`, stats it, calls UploadAttachment, then `render.Confirm("uploaded", attachment.Name)`
-- [ ] use `--name` to override the file's basename; default to `filepath.Base(file)`
-- [ ] write unit test: file body of 8 bytes, full 4-step round trip via path-switching httptest server, assert returned `Attachment`
-- [ ] write unit test: size > 16 MB returns the size error before any HTTP call (verify by setting up server that fails on connection)
-- [ ] write e2e test (plain): create temp file, run upload command, assert `uploaded: <name>\n`
-- [ ] write e2e test (JSON): same, assert `{"uploaded":"<name>"}` shape
-- [ ] write e2e test: missing `--file` exits non-zero with kong's standard error
-- [ ] run `go test ./...` — must pass before Task 6
+- [x] `UploadAttachmentCmd { PageSlug string \`arg\`; File string \`name:"file" required\`; Name string \`name:"name"\` }`; Run opens the file with `os.Open`, stats it, calls UploadAttachment, then `render.Confirm("uploaded", attachment.Name)`
+- [x] use `--name` to override the file's basename; default to `filepath.Base(file)`
+- [x] write unit test: file body of 7 bytes, full 5-call round trip (GetPage → create → upload_part → finish → attach), assert call order
+- [x] write unit test: size > 16 MiB returns the size error before any HTTP call (verified by tripwire on the test server)
+- [x] write e2e test (plain): create temp file, run upload command, assert `uploaded: <name>\n`
+- [x] write e2e test (JSON): same with `--name` override, assert `{"uploaded": "<name>"}` shape
+- [x] write e2e test: missing `--file` exits non-zero with kong's standard error
+- [x] ➕ refactored shared lookup into `pickUniqueByName` + `listAttachmentsByID` so Download and Delete share one error-message contract
+- [x] run `go test ./...` — must pass before Task 6
 
 ### Task 6: Delete attachment by slug + filename
 
@@ -196,17 +197,16 @@ Glues the upload-sessions helper to the page-attach call. Returns the resulting 
 - Modify: `internal/cli/cli.go`
 - Modify: `internal/cli/e2e_test.go`
 
-- [ ] `(c *Client) DeleteAttachment(ctx, pageSlug, filename string) error`:
-  - GetPage → id; ListAttachments → find unique match by name; DELETE /v1/pages/{id}/attachments/{file_id}
-  - duplicate filename → return same error message used in Download (single source of truth: factor a small `findAttachmentByName` helper)
-  - missing filename → `attachment %q not found on page %q`
-- [ ] `DeleteAttachmentCmd { PageSlug, Filename string }`; Run → `render.Confirm("deleted", filename)`
-- [ ] write unit test: happy path, single match, DELETE issued with correct id
-- [ ] write unit test: filename not found → no DELETE issued, error message matches
-- [ ] write unit test: duplicate filenames → no DELETE issued, error matches Download's message
-- [ ] write e2e test (plain): assert `deleted: <name>\n`
-- [ ] write e2e test (JSON): assert `{"deleted":"<name>"}`
-- [ ] run `go test ./...` — must pass before Task 7
+- [x] `(c *Client) DeleteAttachment(ctx, pageSlug, filename string) error`:
+  - GetPage → id; listAttachmentsByID → pickUniqueByName; DELETE /v1/pages/{id}/attachments/{file_id}
+  - shared `pickUniqueByName` helper guarantees Download and Delete emit identical messages
+- [x] `DeleteAttachmentCmd { PageSlug, Filename string }`; Run → `render.Confirm("deleted", filename)`
+- [x] write unit test: happy path, single match, DELETE issued with correct id
+- [x] write unit test: filename not found → no DELETE issued, error message matches
+- [x] write unit test: duplicate filenames → no DELETE issued, error matches Download's message
+- [x] write e2e test (plain): assert `deleted: <name>\n`
+- [x] write e2e test (JSON): assert `{"deleted": "<name>"}`
+- [x] run `go test ./...` — must pass before Task 7
 
 ### Task 7: Verify acceptance
 

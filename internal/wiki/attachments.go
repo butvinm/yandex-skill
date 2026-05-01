@@ -56,13 +56,48 @@ type attachmentsPage struct {
 	NextCursor string       `json:"next_cursor"`
 }
 
-// findAttachmentByName returns the unique match for filename on pageSlug.
-// Errors if not found or if more than one attachment shares the name.
-func (c *Client) findAttachmentByName(ctx context.Context, pageSlug, filename string) (*Attachment, error) {
-	atts, err := c.ListAttachments(ctx, pageSlug)
+type attachReq struct {
+	UploadSessions []string `json:"upload_sessions"`
+}
+
+type attachResults struct {
+	Results []Attachment `json:"results"`
+}
+
+func (c *Client) ListAttachments(ctx context.Context, pageSlug string) ([]Attachment, error) {
+	page, err := c.GetPage(ctx, pageSlug)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("resolve slug: %w", err)
 	}
+	return c.listAttachmentsByID(ctx, page.ID)
+}
+
+func (c *Client) listAttachmentsByID(ctx context.Context, pageID int64) ([]Attachment, error) {
+	var all []Attachment
+	cursor := ""
+	for {
+		q := url.Values{}
+		q.Set("page_size", "100")
+		if cursor != "" {
+			q.Set("cursor", cursor)
+		}
+		var out attachmentsPage
+		path := fmt.Sprintf("/v1/pages/%d/attachments?%s", pageID, q.Encode())
+		if _, err := c.Do(ctx, http.MethodGet, path, nil, &out); err != nil {
+			return nil, err
+		}
+		all = append(all, out.Results...)
+		if out.NextCursor == "" {
+			return all, nil
+		}
+		cursor = out.NextCursor
+	}
+}
+
+// pickUniqueByName picks the single attachment with the given name from atts.
+// Returns one of two stable error messages on miss/duplicate so callers
+// share the contract.
+func pickUniqueByName(atts []Attachment, pageSlug, filename string) (*Attachment, error) {
 	var matches []Attachment
 	for _, a := range atts {
 		if a.Name == filename {
@@ -81,9 +116,13 @@ func (c *Client) findAttachmentByName(ctx context.Context, pageSlug, filename st
 
 // DownloadAttachment streams an attachment's bytes to w. The unique-name
 // precondition (and check_status==ready guard) is enforced before issuing
-// the binary GET so failures do not leak partial data to w.
+// the binary GET so refusal cases leak no partial data.
 func (c *Client) DownloadAttachment(ctx context.Context, pageSlug, filename string, w io.Writer) error {
-	att, err := c.findAttachmentByName(ctx, pageSlug, filename)
+	atts, err := c.ListAttachments(ctx, pageSlug)
+	if err != nil {
+		return err
+	}
+	att, err := pickUniqueByName(atts, pageSlug, filename)
 	if err != nil {
 		return err
 	}
@@ -102,29 +141,54 @@ func (c *Client) DownloadAttachment(ctx context.Context, pageSlug, filename stri
 	return err
 }
 
-func (c *Client) ListAttachments(ctx context.Context, pageSlug string) ([]Attachment, error) {
+// UploadAttachment ships a file to a wiki page via the 3-step upload-sessions
+// protocol. Files larger than MaxAttachmentSize are rejected before any HTTP
+// call (we ship single-part uploads only).
+func (c *Client) UploadAttachment(ctx context.Context, pageSlug, fileName string, body io.Reader, size int64) (*Attachment, error) {
+	if size > MaxAttachmentSize {
+		return nil, fmt.Errorf("file too large: %d bytes (max %d MiB single-part upload)", size, MaxAttachmentSize/(1024*1024))
+	}
 	page, err := c.GetPage(ctx, pageSlug)
 	if err != nil {
 		return nil, fmt.Errorf("resolve slug: %w", err)
 	}
-	var all []Attachment
-	cursor := ""
-	for {
-		q := url.Values{}
-		q.Set("page_size", "100")
-		if cursor != "" {
-			q.Set("cursor", cursor)
-		}
-		var out attachmentsPage
-		path := fmt.Sprintf("/v1/pages/%d/attachments?%s", page.ID, q.Encode())
-		_, err := c.Do(ctx, http.MethodGet, path, nil, &out)
-		if err != nil {
-			return nil, err
-		}
-		all = append(all, out.Results...)
-		if out.NextCursor == "" {
-			return all, nil
-		}
-		cursor = out.NextCursor
+	sess, err := c.createUploadSession(ctx, fileName, size)
+	if err != nil {
+		return nil, err
 	}
+	if err := c.uploadPart(ctx, sess.ID, 1, body); err != nil {
+		return nil, err
+	}
+	if err := c.finishUploadSession(ctx, sess.ID); err != nil {
+		return nil, err
+	}
+	var out attachResults
+	path := fmt.Sprintf("/v1/pages/%d/attachments", page.ID)
+	if _, err := c.Do(ctx, http.MethodPost, path, attachReq{UploadSessions: []string{sess.ID}}, &out); err != nil {
+		return nil, err
+	}
+	if len(out.Results) == 0 {
+		return nil, fmt.Errorf("attach response had no results")
+	}
+	return &out.Results[0], nil
+}
+
+// DeleteAttachment removes an attachment by name from a page. Fails on
+// duplicate or missing names with the same messages as DownloadAttachment.
+func (c *Client) DeleteAttachment(ctx context.Context, pageSlug, filename string) error {
+	page, err := c.GetPage(ctx, pageSlug)
+	if err != nil {
+		return fmt.Errorf("resolve slug: %w", err)
+	}
+	atts, err := c.listAttachmentsByID(ctx, page.ID)
+	if err != nil {
+		return err
+	}
+	att, err := pickUniqueByName(atts, pageSlug, filename)
+	if err != nil {
+		return err
+	}
+	path := fmt.Sprintf("/v1/pages/%d/attachments/%d", page.ID, att.ID)
+	_, err = c.Do(ctx, http.MethodDelete, path, nil, nil)
+	return err
 }

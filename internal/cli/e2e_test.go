@@ -327,4 +327,154 @@ func TestE2E_WikiAttachmentsDownload_ToStdout(t *testing.T) {
 	}
 }
 
+func TestE2E_WikiAttachmentsUpload_Plain(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/pages":
+			_, _ = io.WriteString(w, `{"id":42,"slug":"team/notes","title":"T"}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/upload_sessions":
+			_, _ = io.WriteString(w, `{"session_id":"u-1","status":"not_started"}`)
+		case r.Method == http.MethodPut && r.URL.Path == "/v1/upload_sessions/u-1/upload_part":
+			w.WriteHeader(200)
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/upload_sessions/u-1/finish":
+			w.WriteHeader(200)
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/pages/42/attachments":
+			_, _ = io.WriteString(w, `{"results":[{"id":7,"name":"diagram.png"}]}`)
+		default:
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+
+	src := filepath.Join(t.TempDir(), "diagram.png")
+	if err := os.WriteFile(src, []byte("PNGDATA"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	stdout, stderr, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":         "tok",
+		"YANDEX_CLOUD_ORG_ID":  "org",
+		"YANDEX_WIKI_BASE_URL": srv.URL,
+	}, "", "wiki", "attachments", "upload", "team/notes", "--file", src)
+
+	if exit != 0 {
+		t.Fatalf("exit=%d stderr=%s", exit, stderr)
+	}
+	if stdout != "uploaded: diagram.png\n" {
+		t.Errorf("stdout = %q", stdout)
+	}
+}
+
+func TestE2E_WikiAttachmentsUpload_JSON_NameOverride(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/pages":
+			_, _ = io.WriteString(w, `{"id":42,"slug":"team/notes","title":"T"}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/upload_sessions":
+			var sent map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&sent)
+			if sent["file_name"] != "renamed.bin" {
+				t.Errorf("file_name = %v", sent["file_name"])
+			}
+			_, _ = io.WriteString(w, `{"session_id":"u-1"}`)
+		case r.Method == http.MethodPut && r.URL.Path == "/v1/upload_sessions/u-1/upload_part":
+			w.WriteHeader(200)
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/upload_sessions/u-1/finish":
+			w.WriteHeader(200)
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/pages/42/attachments":
+			_, _ = io.WriteString(w, `{"results":[{"id":7,"name":"renamed.bin"}]}`)
+		}
+	}))
+	defer srv.Close()
+
+	src := filepath.Join(t.TempDir(), "actual.bin")
+	if err := os.WriteFile(src, []byte("DATA"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	stdout, _, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":         "tok",
+		"YANDEX_CLOUD_ORG_ID":  "org",
+		"YANDEX_WIKI_BASE_URL": srv.URL,
+	}, "", "--json", "wiki", "attachments", "upload", "team/notes", "--file", src, "--name", "renamed.bin")
+
+	if exit != 0 {
+		t.Fatalf("exit = %d", exit)
+	}
+	if !strings.Contains(stdout, `"uploaded": "renamed.bin"`) {
+		t.Errorf("stdout = %q", stdout)
+	}
+}
+
+func TestE2E_WikiAttachmentsUpload_RequiresFile(t *testing.T) {
+	_, stderr, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":         "tok",
+		"YANDEX_CLOUD_ORG_ID":  "org",
+		"YANDEX_WIKI_BASE_URL": "http://unused",
+	}, "", "wiki", "attachments", "upload", "team/notes")
+
+	if exit == 0 {
+		t.Fatal("expected non-zero exit when --file is missing")
+	}
+	if !strings.Contains(stderr, "--file") {
+		t.Errorf("stderr should mention --file: %q", stderr)
+	}
+}
+
+func TestE2E_WikiAttachmentsDelete_Plain(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/pages":
+			_, _ = io.WriteString(w, `{"id":42,"slug":"team/notes","title":"T"}`)
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/pages/42/attachments":
+			_, _ = io.WriteString(w, `{"results":[{"id":7,"name":"old.png"}]}`)
+		case r.Method == http.MethodDelete && r.URL.Path == "/v1/pages/42/attachments/7":
+			w.WriteHeader(204)
+		default:
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+
+	stdout, stderr, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":         "tok",
+		"YANDEX_CLOUD_ORG_ID":  "org",
+		"YANDEX_WIKI_BASE_URL": srv.URL,
+	}, "", "wiki", "attachments", "delete", "team/notes", "old.png")
+
+	if exit != 0 {
+		t.Fatalf("exit=%d stderr=%s", exit, stderr)
+	}
+	if stdout != "deleted: old.png\n" {
+		t.Errorf("stdout = %q", stdout)
+	}
+}
+
+func TestE2E_WikiAttachmentsDelete_JSON(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/pages":
+			_, _ = io.WriteString(w, `{"id":42,"slug":"team/notes","title":"T"}`)
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/pages/42/attachments":
+			_, _ = io.WriteString(w, `{"results":[{"id":7,"name":"old.png"}]}`)
+		case r.Method == http.MethodDelete:
+			w.WriteHeader(204)
+		}
+	}))
+	defer srv.Close()
+
+	stdout, _, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":         "tok",
+		"YANDEX_CLOUD_ORG_ID":  "org",
+		"YANDEX_WIKI_BASE_URL": srv.URL,
+	}, "", "--json", "wiki", "attachments", "delete", "team/notes", "old.png")
+
+	if exit != 0 {
+		t.Fatalf("exit = %d", exit)
+	}
+	if !strings.Contains(stdout, `"deleted": "old.png"`) {
+		t.Errorf("stdout = %q", stdout)
+	}
+}
+
 func jsonUnmarshal(b []byte, v any) error { return json.Unmarshal(b, v) }

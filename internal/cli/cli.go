@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/alecthomas/kong"
 
@@ -67,8 +68,10 @@ type WikiPagesCmd struct {
 }
 
 type WikiAttachmentsCmd struct {
-	List     ListAttachmentsCmd     `cmd:"" help:"list attachments on a page"`
-	Download DownloadAttachmentCmd  `cmd:"" help:"download an attachment by page slug + filename"`
+	List     ListAttachmentsCmd    `cmd:"" help:"list attachments on a page"`
+	Upload   UploadAttachmentCmd   `cmd:"" help:"upload a file to a page"`
+	Download DownloadAttachmentCmd `cmd:"" help:"download an attachment by page slug + filename"`
+	Delete   DeleteAttachmentCmd   `cmd:"" help:"delete an attachment by page slug + filename"`
 }
 
 type VersionCmd struct{}
@@ -261,6 +264,53 @@ func (c *DownloadAttachmentCmd) Run(g *Globals) error {
 		w = f
 	}
 	return wiki.New(cfg).DownloadAttachment(g.Ctx, c.PageSlug, c.Filename, w)
+}
+
+type UploadAttachmentCmd struct {
+	PageSlug string `arg:"" name:"page-slug" help:"page slug"`
+	File     string `name:"file" required:"" help:"local file path to upload"`
+	Name     string `name:"name" help:"attachment filename (defaults to basename of --file)"`
+}
+
+func (c *UploadAttachmentCmd) Run(g *Globals) error {
+	cfg, err := auth.Load()
+	if err != nil {
+		return err
+	}
+	f, err := os.Open(c.File)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	name := c.Name
+	if name == "" {
+		name = filepath.Base(c.File)
+	}
+	att, err := wiki.New(cfg).UploadAttachment(g.Ctx, c.PageSlug, name, f, info.Size())
+	if err != nil {
+		return err
+	}
+	return render.Confirm(g.Stdout, g.Format(), "uploaded", att.Name)
+}
+
+type DeleteAttachmentCmd struct {
+	PageSlug string `arg:"" name:"page-slug" help:"page slug"`
+	Filename string `arg:"" name:"filename" help:"attachment filename"`
+}
+
+func (c *DeleteAttachmentCmd) Run(g *Globals) error {
+	cfg, err := auth.Load()
+	if err != nil {
+		return err
+	}
+	if err := wiki.New(cfg).DeleteAttachment(g.Ctx, c.PageSlug, c.Filename); err != nil {
+		return err
+	}
+	return render.Confirm(g.Stdout, g.Format(), "deleted", c.Filename)
 }
 
 // Run parses argv and dispatches to the matched command. Returns the exit code.
