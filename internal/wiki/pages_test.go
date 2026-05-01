@@ -78,6 +78,35 @@ func TestGetPage_RequestsFieldsContent(t *testing.T) {
 	}
 }
 
+func TestGetPage_DecodesPageType(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+		want string
+	}{
+		{"wysiwyg", `{"id":1,"slug":"s","title":"T","page_type":"wysiwyg","content":""}`, PageTypeWysiwyg},
+		{"page", `{"id":1,"slug":"s","title":"T","page_type":"page","content":""}`, PageTypePage},
+		{"grid", `{"id":1,"slug":"s","title":"T","page_type":"grid","content":""}`, PageTypeGrid},
+		{"missing field is empty", `{"id":1,"slug":"s","title":"T","content":""}`, ""},
+		{"unknown value passes through", `{"id":1,"slug":"s","title":"T","page_type":"future_kind","content":""}`, "future_kind"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			body := tc.body
+			c, _ := newWiki(t, func(w http.ResponseWriter, r *http.Request) {
+				_, _ = io.WriteString(w, body)
+			})
+			got, err := c.GetPage(context.Background(), "s")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.PageType != tc.want {
+				t.Errorf("PageType = %q, want %q", got.PageType, tc.want)
+			}
+		})
+	}
+}
+
 func TestListPages_PaginatesAndEnrichesTitles(t *testing.T) {
 	descCalls := 0
 	titleCalls := map[string]int{}

@@ -91,12 +91,12 @@ API endpoints already in the client (no new ones for this feature):
 - Modify: `internal/wiki/pages.go`
 - Modify: `internal/wiki/pages_test.go`
 
-- [ ] add `PageType string \`json:"page_type"\``to`Page`struct in`internal/wiki/pages.go:19`
-- [ ] add a constant set near the struct: `const (PageTypeWysiwyg = "wysiwyg"; PageTypePage = "page"; PageTypeGrid = "grid")` to keep magic strings out of the CLI layer
-- [ ] (no change to `fields=content` query — the API returns `page_type` regardless; verified by probe)
-- [ ] (no change to `Plain()` output — `PageType` is for programmatic use, not LLM-facing display)
-- [ ] add table-driven `TestPage_DecodePageType` in `internal/wiki/pages_test.go` covering: `"wysiwyg"`, `"page"`, `"grid"`, missing field (zero value)
-- [ ] run `go test ./internal/wiki/... && go vet ./...` — must pass before Task 2
+- [x] add `PageType string \`json:"page_type"\``to`Page`struct in`internal/wiki/pages.go:19`
+- [x] add a constant set near the struct: `const (PageTypeWysiwyg = "wysiwyg"; PageTypePage = "page"; PageTypeGrid = "grid")` to keep magic strings out of the CLI layer
+- [x] (no change to `fields=content` query — the API returns `page_type` regardless; verified by probe)
+- [x] (no change to `Plain()` output — `PageType` is for programmatic use, not LLM-facing display)
+- [x] add table-driven `TestPage_DecodePageType` in `internal/wiki/pages_test.go` covering: `"wysiwyg"`, `"page"`, `"grid"`, missing field (zero value)
+- [x] run `go test ./internal/wiki/... && go vet ./...` — must pass before Task 2
 
 ### Task 2: Link-rewrite helpers (server → local, "read" direction)
 

@@ -11,6 +11,15 @@ import (
 	"github.com/butvinm/yandex-skill/internal/render"
 )
 
+// page_type values returned by the Yandex Wiki API. Returned unsolicited on
+// every /v1/pages response — not in the documented `fields=` allow-list, but
+// always present at the top level of the JSON.
+const (
+	PageTypeWysiwyg = "wysiwyg" // modern Yandex Flavored Markdown
+	PageTypePage    = "page"    // legacy "static markup" pages
+	PageTypeGrid    = "grid"    // dynamic table; content is null, lives at /v1/grids/{id}
+)
+
 type PageAttrs struct {
 	ModifiedAt string `json:"modified_at"`
 	CreatedAt  string `json:"created_at"`
@@ -20,6 +29,7 @@ type Page struct {
 	ID         int64     `json:"id"`
 	Slug       string    `json:"slug"`
 	Title      string    `json:"title"`
+	PageType   string    `json:"page_type"`
 	Content    string    `json:"content"`
 	Attributes PageAttrs `json:"attributes"`
 }
