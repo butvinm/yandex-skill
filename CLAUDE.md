@@ -35,7 +35,7 @@ go install -ldflags "-X main.version=$(git describe --tags --always)" ./cmd/yand
 - `internal/cli/` — kong CLI definitions, command Run methods, e2e tests
 - `internal/auth/` — env-var config, tenancy detection, header builders
 - `internal/tracker/` — Tracker REST client + types (issues, queues)
-- `internal/wiki/` — Wiki REST client + types (pages)
+- `internal/wiki/` — Wiki REST client + types (pages, attachments). `client.go` has both `Do` (JSON) and `DoRaw` (binary streams). `attachments.go` exposes the public ops; `upload_sessions.go` is the private 3-step helper used only by `UploadAttachment`.
 - `internal/render/` — Plain/JSON output, `Plainer`/`Rower` interfaces
 - `plugins/yandex/` — Claude Code plugin manifest and skill files
 
@@ -64,11 +64,22 @@ When adding a command, add: (1) a unit test for the client method, (2) an e2e te
 Limitations are stated in the README. Don't silently expand:
 
 - No Tracker writes (no comments, transitions, edits)
-- No Wiki attachments / image uploads
+- Wiki attachment uploads are single-part only (≤16 MiB); no chunked or resumable upload path
 - No pagination flags (clients fetch all pages internally via Link `rel=next`)
 - Wiki page list is `--parent`-only (no free-text search; the API doesn't expose one)
 
 If a task requires breaking one of these, surface it as a scope question before implementing.
+
+**Wiki attachments invariant.** Uploads use the official 3-step Upload Sessions protocol:
+
+1. `POST /v1/upload_sessions` `{file_name, file_size}` → `{session_id}`
+2. `PUT /v1/upload_sessions/{id}/upload_part?part_number=1` with `Content-Type: application/octet-stream` (single part, ≤16 MiB)
+3. `POST /v1/upload_sessions/{id}/finish`
+4. `POST /v1/pages/{idx}/attachments` `{upload_sessions: [<id>]}` to bind the session to a page
+
+Some third-party clients (e.g. `zolkinka/yandex-mcp`) document a `POST /v1/pages/{id}/files` multipart endpoint — that does **not** exist in the public Yandex Wiki spec. Don't reintroduce it.
+
+Download by slug + filename uses `GET /v1/pages/attachments/download_by_url?url=<slug>/<filename>` so the CLI doesn't need to expose the numeric file id. Delete still needs the id and looks it up via the page-id list.
 
 ## Things not to do
 

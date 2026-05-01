@@ -5,7 +5,7 @@ description: Read Yandex Tracker issues and queues; read and write Yandex Wiki p
 
 # Yandex Tracker + Wiki
 
-This skill exposes 8 commands via the `yandex-cli` binary (must be on PATH).
+This skill exposes 12 commands via the `yandex-cli` binary (must be on PATH).
 
 ## Prerequisites
 
@@ -32,12 +32,19 @@ Tracker (read only):
 - `yandex-cli tracker queues list` — list all queues
 - `yandex-cli tracker queues get <KEY>` — fetch queue config
 
-Wiki (read + write):
+Wiki pages (read + write):
 
 - `yandex-cli wiki pages list --parent <slug>` — list child page slugs of a parent
 - `yandex-cli wiki pages get <slug>` — fetch a page (title, modified time, body)
 - `yandex-cli wiki pages create --slug <new/path> --title <s> --body[-file] <s|path|->` — create a page
 - `yandex-cli wiki pages update <slug> --body[-file] <s|path|->` — replace page body
+
+Wiki attachments (read + write):
+
+- `yandex-cli wiki attachments list <slug>` — list a page's attachments
+- `yandex-cli wiki attachments upload <slug> --file <path> [--name <override>]` — upload a file (≤16 MiB)
+- `yandex-cli wiki attachments download <slug> <filename> [--output <path>|-]` — stream binary content
+- `yandex-cli wiki attachments delete <slug> <filename>` — remove an attachment
 
 Body input: `--body "inline"` or `--body-file path/to/draft.md` or `--body-file -` (read from stdin). The two flags are mutually exclusive.
 
@@ -78,9 +85,27 @@ yandex-cli wiki pages create \
 echo "# Summary\n\nFoo" | yandex-cli wiki pages update team/notes/2026-04-29 --body-file -
 ```
 
+### Attach a screenshot to a wiki page
+
+```sh
+yandex-cli wiki attachments upload team/notes/2026-04-29 \
+  --file /tmp/screenshot.png
+```
+
+The filename defaults to the basename of `--file`; pass `--name diagram.png` to override.
+
+### Save a wiki attachment locally
+
+```sh
+yandex-cli wiki attachments download team/notes/2026-04-29 diagram.png \
+  --output ./diagram.png
+```
+
+Use `--output -` (default) to stream to stdout — pipe straight into another tool. Note that this is binary on most attachments; redirect to a file rather than printing in a terminal.
+
 ## Limitations
 
 - No Tracker writes (no comments, transitions, edits)
-- No Wiki attachments / image uploads
+- Wiki attachment uploads are single-part only (≤16 MiB) — chunked uploads not implemented
 - No free-text search for Wiki — `pages list` accepts `--parent` only
 - Pagination is internal — large result sets fetch in full

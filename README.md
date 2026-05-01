@@ -4,7 +4,7 @@ A Claude Code skill for **Yandex Tracker** and **Yandex Wiki**, backed by a smal
 
 ## What it does
 
-8 commands across two products.
+12 commands across two products.
 
 **Tracker**
 
@@ -19,6 +19,10 @@ A Claude Code skill for **Yandex Tracker** and **Yandex Wiki**, backed by a smal
 - `yandex-cli wiki pages get <slug>` — get page content
 - `yandex-cli wiki pages create --slug ... --title ... --body[-file] ...` — create a page
 - `yandex-cli wiki pages update <slug> --body[-file] ...` — update a page
+- `yandex-cli wiki attachments list <slug>` — list a page's attachments
+- `yandex-cli wiki attachments upload <slug> --file PATH [--name NAME]` — upload (≤16 MiB)
+- `yandex-cli wiki attachments download <slug> <filename> [--output PATH|-]` — stream binary
+- `yandex-cli wiki attachments delete <slug> <filename>` — remove an attachment
 
 ## Setup
 
@@ -97,6 +101,6 @@ Errors go to stderr with non-zero exit. With `--json`, errors are JSON: `{"error
 ## Limitations
 
 - **No Tracker writes** (no comments, no transitions, no edits)
-- **No Wiki attachments / image uploads**
+- **Wiki attachment uploads are single-part only** — files larger than 16 MiB are rejected. The Yandex Wiki upload-sessions API supports chunked uploads up to ~160 GB; we ship single-part to keep the client lean.
 - **No pagination flags** — clients fetch all pages internally
 - **Wiki has no free-text search** — `wiki pages list` accepts `--parent` only
