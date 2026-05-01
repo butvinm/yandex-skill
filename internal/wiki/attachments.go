@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/butvinm/yandex-skill/internal/render"
 )
@@ -119,7 +120,7 @@ func (c *Client) DownloadAttachment(ctx context.Context, pageSlug, filename stri
 		return fmt.Errorf("attachment %q has check_status=%s; refusing to download", filename, att.CheckStatus)
 	}
 	q := url.Values{}
-	q.Set("url", pageSlug+"/"+filename)
+	q.Set("url", strings.TrimPrefix(att.DownloadURL, "/"))
 	q.Set("download", "true")
 	resp, err := c.DoRaw(ctx, http.MethodGet, "/v1/pages/attachments/download_by_url?"+q.Encode(), "", nil)
 	if err != nil {

@@ -98,9 +98,9 @@ func TestDownloadAttachment_HappyPath(t *testing.T) {
 		case "/v1/pages":
 			_, _ = io.WriteString(w, `{"id":42,"slug":"team/notes","title":"T"}`)
 		case "/v1/pages/42/attachments":
-			_, _ = io.WriteString(w, `{"results":[{"id":1,"name":"diagram.png","check_status":"ready"}]}`)
+			_, _ = io.WriteString(w, `{"results":[{"id":1,"name":"diagram.png","download_url":"/team/notes/.files/diagram.png","check_status":"ready"}]}`)
 		case "/v1/pages/attachments/download_by_url":
-			if r.URL.Query().Get("url") != "team/notes/diagram.png" {
+			if r.URL.Query().Get("url") != "team/notes/.files/diagram.png" {
 				t.Errorf("url = %s", r.URL.Query().Get("url"))
 			}
 			if r.URL.Query().Get("download") != "true" {
@@ -117,6 +117,38 @@ func TestDownloadAttachment_HappyPath(t *testing.T) {
 		t.Fatal(err)
 	}
 	if buf.String() != "\x89PNG\x0d\x0a" {
+		t.Errorf("body = %q", buf.String())
+	}
+}
+
+// The server's download_by_url endpoint expects the URL form returned in
+// the attachment's download_url field — typically with a server-mangled
+// filename (e.g. underscores stripped, transliterated). Constructing the
+// query as `<slug>/<name>` failed with HTTP 400 on real attachments.
+func TestDownloadAttachment_UsesDownloadURLNotName(t *testing.T) {
+	var sentURL string
+	c, _ := newWiki(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/pages":
+			_, _ = io.WriteString(w, `{"id":42,"slug":"team/notes","title":"T"}`)
+		case "/v1/pages/42/attachments":
+			_, _ = io.WriteString(w, `{"results":[{"id":1,"name":"docker-compose_keycloak.yml","download_url":"/team/notes/.files/docker-composekeycloak.yml","check_status":"ready"}]}`)
+		case "/v1/pages/attachments/download_by_url":
+			sentURL = r.URL.Query().Get("url")
+			_, _ = w.Write([]byte("YAMLDATA"))
+		default:
+			t.Errorf("unexpected path %s", r.URL.Path)
+		}
+	})
+
+	var buf bytes.Buffer
+	if err := c.DownloadAttachment(context.Background(), "team/notes", "docker-compose_keycloak.yml", &buf); err != nil {
+		t.Fatal(err)
+	}
+	if sentURL != "team/notes/.files/docker-composekeycloak.yml" {
+		t.Errorf("download_by_url url = %q, want server-mangled form from download_url field", sentURL)
+	}
+	if buf.String() != "YAMLDATA" {
 		t.Errorf("body = %q", buf.String())
 	}
 }
