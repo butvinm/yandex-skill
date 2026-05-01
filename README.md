@@ -15,7 +15,7 @@ A Claude Code skill for **Yandex Tracker** and **Yandex Wiki**, backed by a smal
 
 **Wiki**
 
-- `yandex-cli wiki pages list --parent <slug>` — list descendants of a page
+- `yandex-cli wiki pages list --parent <slug>` — list descendants (slug + title) of a page
 - `yandex-cli wiki pages get <slug>` — get page content
 - `yandex-cli wiki pages create --slug ... --title ... --body[-file] ...` — create a page
 - `yandex-cli wiki pages update <slug> --body[-file] ...` — update a page

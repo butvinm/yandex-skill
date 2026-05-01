@@ -34,7 +34,7 @@ Tracker (read only):
 
 Wiki pages (read + write):
 
-- `yandex-cli wiki pages list --parent <slug>` — list child page slugs of a parent
+- `yandex-cli wiki pages list --parent <slug>` — list child pages (slug + title) of a parent
 - `yandex-cli wiki pages get <slug>` — fetch a page (title, modified time, body)
 - `yandex-cli wiki pages create --slug <new/path> --title <s> --body[-file] <s|path|->` — create a page
 - `yandex-cli wiki pages update <slug> --body[-file] <s|path|->` — replace page body

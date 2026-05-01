@@ -211,6 +211,39 @@ func TestE2E_AuthError_404_JSON(t *testing.T) {
 	}
 }
 
+func TestE2E_WikiPagesList_PlainIncludesTitles(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/pages/descendants":
+			_, _ = io.WriteString(w, `{"results":[{"id":1,"slug":"ai-services/ai-serv"},{"id":2,"slug":"ai-services/ai-services-v2"}]}`)
+		case "/v1/pages":
+			slug := r.URL.Query().Get("slug")
+			titles := map[string]string{
+				"ai-services/ai-serv":        "AI Services old",
+				"ai-services/ai-services-v2": "AI Services",
+			}
+			_, _ = io.WriteString(w, `{"id":0,"slug":"`+slug+`","title":"`+titles[slug]+`"}`)
+		default:
+			t.Errorf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+
+	stdout, stderr, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":         "tok",
+		"YANDEX_CLOUD_ORG_ID":  "org",
+		"YANDEX_WIKI_BASE_URL": srv.URL,
+	}, "", "wiki", "pages", "list", "--parent", "ai-services")
+
+	if exit != 0 {
+		t.Fatalf("exit=%d stderr=%s", exit, stderr)
+	}
+	want := "ai-services/ai-serv  AI Services old\nai-services/ai-services-v2  AI Services\n"
+	if stdout != want {
+		t.Errorf("stdout = %q\nwant      %q", stdout, want)
+	}
+}
+
 func TestE2E_WikiAttachmentsList_Plain(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
