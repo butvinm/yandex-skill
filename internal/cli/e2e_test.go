@@ -209,4 +209,59 @@ func TestE2E_AuthError_404_JSON(t *testing.T) {
 	}
 }
 
+func TestE2E_WikiAttachmentsList_Plain(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/pages":
+			_, _ = io.WriteString(w, `{"id":42,"slug":"team/notes","title":"T"}`)
+		case "/v1/pages/42/attachments":
+			_, _ = io.WriteString(w, `{"results":[{"id":1,"name":"diagram.png","size":2048,"mimetype":"image/png","created_at":"2026-05-01","check_status":"ready"},{"id":2,"name":"draft.md","size":300,"mimetype":"text/markdown","created_at":"2026-05-01","check_status":"ready"}]}`)
+		default:
+			t.Errorf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+
+	stdout, stderr, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":         "tok",
+		"YANDEX_CLOUD_ORG_ID":  "org",
+		"YANDEX_WIKI_BASE_URL": srv.URL,
+	}, "", "wiki", "attachments", "list", "team/notes")
+
+	if exit != 0 {
+		t.Fatalf("exit=%d stderr=%s", exit, stderr)
+	}
+	want := "diagram.png  2KB  image/png  2026-05-01\ndraft.md  300B  text/markdown  2026-05-01\n"
+	if stdout != want {
+		t.Errorf("stdout = %q\nwant      %q", stdout, want)
+	}
+}
+
+func TestE2E_WikiAttachmentsList_JSON(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/pages":
+			_, _ = io.WriteString(w, `{"id":42,"slug":"team/notes","title":"T"}`)
+		case "/v1/pages/42/attachments":
+			_, _ = io.WriteString(w, `{"results":[{"id":1,"name":"diagram.png","size":2048,"mimetype":"image/png","check_status":"ready"}]}`)
+		}
+	}))
+	defer srv.Close()
+
+	stdout, _, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":         "tok",
+		"YANDEX_CLOUD_ORG_ID":  "org",
+		"YANDEX_WIKI_BASE_URL": srv.URL,
+	}, "", "--json", "wiki", "attachments", "list", "team/notes")
+
+	if exit != 0 {
+		t.Fatalf("exit = %d", exit)
+	}
+	for _, want := range []string{`"name": "diagram.png"`, `"size": 2048`, `"check_status": "ready"`} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("stdout missing %s: %q", want, stdout)
+		}
+	}
+}
+
 func jsonUnmarshal(b []byte, v any) error { return json.Unmarshal(b, v) }

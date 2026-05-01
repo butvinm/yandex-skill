@@ -109,16 +109,16 @@ The current `Do()` marshals body as JSON and decodes response as JSON. Upload-se
 
 Adds `Attachment` struct implementing both `Plainer` and `Rower` (List uses `Row`, future single-record callers use `Plain`). `ListAttachments` resolves slug → id via `GetPage`, then loops `GET /v1/pages/{idx}/attachments` until `next_cursor` is empty.
 
-- [ ] define `Attachment` struct: `ID int64, Name string, Size int64, Mimetype string, DownloadURL string, CreatedAt string, CheckStatus string, HasPreview bool` with JSON tags matching API
-- [ ] implement `Plain() string` using `render.SkipEmpty(name, humanSize, mimetype, created_at)` and `Row() string` returning the same (single-line)
-- [ ] add `humanSize(int64) string` helper (B/KB/MB/GB) — keep terse, no fractions for B/KB
-- [ ] implement `(*Client).ListAttachments(ctx, pageSlug string) ([]Attachment, error)`: GetPage → loop with cursor, page_size=100
-- [ ] add `WikiAttachmentsCmd` to `WikiCmd`, with `List ListAttachmentsCmd { PageSlug string \`arg:""\` }`; Run follows the standard pattern → `render.Many`
-- [ ] write unit test for `ListAttachments`: single-page response with 2 records, then a paginated case (next_cursor non-empty on first call, empty on second) — assert all records aggregated, assert request paths
-- [ ] write unit test for `Attachment.Row()` covering missing fields (size=0 still renders, missing mimetype skipped via SkipEmpty)
-- [ ] write e2e test (plain): stub both `GET /v1/pages?slug=...` (for slug→id) and `GET /v1/pages/{idx}/attachments`; assert exact stdout
-- [ ] write e2e test (JSON): same stub, with `--json`, assert `"name"`, `"size"`, `"check_status"` are present in the encoded array
-- [ ] run `go test ./...` — must pass before Task 3
+- [x] define `Attachment` struct: `ID int64, Name string, Size int64, Mimetype string, DownloadURL string, CreatedAt string, CheckStatus string, HasPreview bool` with JSON tags matching API
+- [x] implement `Plain() string` using `render.SkipEmpty(name, humanSize, mimetype, created_at)` and `Row() string` returning the same (single-line)
+- [x] add `humanSize(int64) string` helper (B/KB/MB/GB) — keep terse, no fractions for B/KB
+- [x] implement `(*Client).ListAttachments(ctx, pageSlug string) ([]Attachment, error)`: GetPage → loop with cursor, page_size=100
+- [x] add `WikiAttachmentsCmd` to `WikiCmd`, with `List ListAttachmentsCmd { PageSlug string \`arg:""\` }`; Run follows the standard pattern → `render.Many`
+- [x] write unit test for `ListAttachments`: single-page response with 2 records, then a paginated case (next_cursor non-empty on first call, empty on second) — assert all records aggregated, assert request paths
+- [x] write unit test for `Attachment.Row()` covering missing fields (size=0 still renders, missing mimetype skipped via SkipEmpty)
+- [x] write e2e test (plain): stub both `GET /v1/pages?slug=...` (for slug→id) and `GET /v1/pages/{idx}/attachments`; assert exact stdout
+- [x] write e2e test (JSON): same stub, with `--json`, assert `"name"`, `"size"`, `"check_status"` are present in the encoded array
+- [x] run `go test ./...` — must pass before Task 3
 
 ### Task 3: Download attachment by slug + filename
 

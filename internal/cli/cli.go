@@ -55,7 +55,8 @@ type TrackerQueuesCmd struct {
 }
 
 type WikiCmd struct {
-	Pages WikiPagesCmd `cmd:"" help:"pages"`
+	Pages       WikiPagesCmd       `cmd:"" help:"pages"`
+	Attachments WikiAttachmentsCmd `cmd:"" help:"page attachments"`
 }
 
 type WikiPagesCmd struct {
@@ -63,6 +64,10 @@ type WikiPagesCmd struct {
 	Get    GetPageCmd    `cmd:"" help:"get a page by slug"`
 	Create CreatePageCmd `cmd:"" help:"create a page"`
 	Update UpdatePageCmd `cmd:"" help:"update a page body"`
+}
+
+type WikiAttachmentsCmd struct {
+	List ListAttachmentsCmd `cmd:"" help:"list attachments on a page"`
 }
 
 type VersionCmd struct{}
@@ -212,6 +217,24 @@ func (c *UpdatePageCmd) Run(g *Globals) error {
 		return err
 	}
 	return render.Confirm(g.Stdout, g.Format(), "updated", p.Slug)
+}
+
+// --- Wiki attachments commands ---
+
+type ListAttachmentsCmd struct {
+	PageSlug string `arg:"" name:"page-slug" help:"page slug"`
+}
+
+func (c *ListAttachmentsCmd) Run(g *Globals) error {
+	cfg, err := auth.Load()
+	if err != nil {
+		return err
+	}
+	atts, err := wiki.New(cfg).ListAttachments(g.Ctx, c.PageSlug)
+	if err != nil {
+		return err
+	}
+	return render.Many(g.Stdout, g.Format(), atts)
 }
 
 // Run parses argv and dispatches to the matched command. Returns the exit code.
