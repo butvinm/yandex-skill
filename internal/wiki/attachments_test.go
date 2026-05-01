@@ -11,15 +11,21 @@ import (
 )
 
 func TestAttachment_Plain(t *testing.T) {
-	a := Attachment{Name: "ss.png", Size: 2048, Mimetype: "image/png", CreatedAt: "2026-05-01"}
+	a := Attachment{
+		Name:        "ss.png",
+		Size:        2048,
+		Mimetype:    "image/png",
+		CreatedAt:   "2026-05-01",
+		DownloadURL: "https://api.wiki.yandex.net/v1/.../download/abc",
+	}
 	got := a.Plain()
-	want := "ss.png  2KB  image/png  2026-05-01"
+	want := "ss.png  2KB  image/png  2026-05-01  https://api.wiki.yandex.net/v1/.../download/abc"
 	if got != want {
 		t.Errorf("got %q want %q", got, want)
 	}
 }
 
-func TestAttachment_Row_SkipsEmptyMime(t *testing.T) {
+func TestAttachment_Row_SkipsEmptyMimeAndURL(t *testing.T) {
 	a := Attachment{Name: "x", Size: 0, CreatedAt: "2026-05-01"}
 	got := a.Row()
 	want := "x  0B  2026-05-01"

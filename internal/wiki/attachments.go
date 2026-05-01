@@ -27,8 +27,12 @@ type Attachment struct {
 	HasPreview  bool   `json:"has_preview"`
 }
 
+// Plain emits "name  size  mime  created_at  download_url" with two-space
+// separators. download_url trails because it's the longest field; agents
+// embedding into markdown can extract it with `awk -F'  ' '{print $NF}'`.
+// Empty fields (e.g. unknown mime) are skipped via render.SkipEmpty.
 func (a Attachment) Plain() string {
-	return render.SkipEmpty(a.Name, humanSize(a.Size), a.Mimetype, a.CreatedAt)
+	return render.SkipEmpty(a.Name, humanSize(a.Size), a.Mimetype, a.CreatedAt, a.DownloadURL)
 }
 
 func (a Attachment) Row() string { return a.Plain() }
