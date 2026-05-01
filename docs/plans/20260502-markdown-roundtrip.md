@@ -105,11 +105,11 @@ API endpoints already in the client (no new ones for this feature):
 - Create: `internal/cli/markdown.go`
 - Create: `internal/cli/markdown_test.go`
 
-- [ ] create `internal/cli/markdown.go` with `func rewriteServerToLocal(content, pageSlug, attachmentsDir string) string`
-- [ ] regex per Decisions: `regexp.MustCompile("/" + regexp.QuoteMeta(pageSlug) + `/\.files/[^\s)\]"'\}]+`)`. Build per-call (page slug is variable); cache via `sync.Map[slug]*regexp.Regexp` if profiling later shows cost. **For first cut: build per call, no cache.**
-- [ ] replacement: rewrite each match to `<attachmentsDir>/<basename>` where basename is the path tail after `/.files/`
-- [ ] `attachmentsDir` is used verbatim (no trailing-slash normalization other than what the caller passes); document this in a one-line comment if non-obvious
-- [ ] write `TestRewriteServerToLocal` (table-driven) covering:
+- [x] create `internal/cli/markdown.go` with `func rewriteServerToLocal(content, pageSlug, attachmentsDir string) string`
+- [x] regex per Decisions: `regexp.MustCompile("/" + regexp.QuoteMeta(pageSlug) + `/\.files/[^\s)\]"'\}]+`)`. Build per-call (page slug is variable); cache via `sync.Map[slug]*regexp.Regexp` if profiling later shows cost. **For first cut: build per call, no cache.**
+- [x] replacement: rewrite each match to `<attachmentsDir>/<basename>` where basename is the path tail after `/.files/`
+- [x] `attachmentsDir` is used verbatim (no trailing-slash normalization other than what the caller passes); document this in a one-line comment if non-obvious
+- [x] write `TestRewriteServerToLocal` (table-driven) covering:
   - YFM image: `![alt](/<slug>/.files/X =375x383)` → `![alt](<dir>/X =375x383)`
   - YFM file directive: `:file[name](/<slug>/.files/X){type="..."}` → `:file[name](<dir>/X){type="..."}`
   - Legacy: `0x0:/<slug>/.files/X` → `0x0:<dir>/X`
@@ -118,7 +118,7 @@ API endpoints already in the client (no new ones for this feature):
   - Unicode filename (`изображение.png` style with collision suffix `-1`)
   - Empty content → empty
   - Slug with regex metacharacters (`a.b/c+d`) — must be escaped via `QuoteMeta`
-- [ ] run `go test ./internal/cli/... && go vet ./...` — must pass before Task 3
+- [x] run `go test ./internal/cli/... && go vet ./...` — must pass before Task 3
 
 ### Task 3: Link-rewrite helpers (local → server, "write" direction)
 
