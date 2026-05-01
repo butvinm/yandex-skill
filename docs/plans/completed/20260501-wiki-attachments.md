@@ -210,11 +210,11 @@ Glues the upload-sessions helper to the page-attach call. Returns the resulting 
 
 ### Task 7: Verify acceptance
 
-- [ ] `go vet ./...` clean
-- [ ] `go test ./...` clean
-- [ ] manually inspect the four new commands' `--help` output (kong-generated) for accidental flag drift
-- [ ] confirm no new env vars introduced (auth model untouched)
-- [ ] confirm `wiki.Client` exports remain the only surface added; no new packages
+- [x] `go vet ./...` clean
+- [x] `go test ./...` clean (5 packages green)
+- [x] inspected `wiki attachments {list,upload,download,delete} --help` — flags match plan; `--file` is correctly required; `--output` defaults to `-`
+- [x] confirmed no new env vars (`git diff master..HEAD -- internal/auth/` empty)
+- [x] confirmed `wiki.Client` is the only new exported surface; only one new constant (`MaxAttachmentSize`) and one new method per operation
 
 ### Task 8: Update documentation
 
@@ -224,12 +224,12 @@ Glues the upload-sessions helper to the page-attach call. Returns the resulting 
 - Modify: `CLAUDE.md`
 - Modify: `plugins/yandex/skills/yandex/SKILL.md`
 
-- [ ] **README.md:** remove `**No Wiki attachments / image uploads**` from limitations; add a `wiki attachments` example block (one upload, one list); note the 16 MB cap in the limitations section instead
-- [ ] **CLAUDE.md:** in "Things not to do," remove the `No Wiki attachments / image uploads` bullet; add a "Wiki attachments invariant" subsection naming the 3-step Upload Sessions protocol so future Claude does not re-invent a multipart shortcut; explicitly call out the `zolkinka/yandex-mcp` `POST /pages/{id}/files` pattern as wrong
-- [ ] **CLAUDE.md:** update the "Layout" listing to add `internal/wiki/upload_sessions.go`
-- [ ] **SKILL.md:** remove the `No Wiki attachments / image uploads` bullet; add the 4 new commands to the "Available commands" → Wiki section; bump the "8 commands" tally to 12
-- [ ] **SKILL.md:** add a "Worked example" for uploading a screenshot
-- [ ] move this plan: `mkdir -p docs/plans/completed && git mv docs/plans/20260501-wiki-attachments.md docs/plans/completed/`
+- [x] **README.md:** removed the limitation; added the 4 attachment commands to "What it does"; replaced the "No Wiki attachments" bullet with the single-part 16 MiB cap note
+- [x] **CLAUDE.md:** updated the "Scope" list and added a "Wiki attachments invariant" block describing the 3-step Upload Sessions protocol and explicitly flagging the `zolkinka/yandex-mcp` `POST /pages/{id}/files` pattern as nonexistent
+- [x] **CLAUDE.md:** Layout entry expanded to mention `attachments.go` and `upload_sessions.go` plus `Do` vs `DoRaw`
+- [x] **SKILL.md:** bumped the count to 12; split Wiki section into pages + attachments; new bullet list for the 4 attachment commands
+- [x] **SKILL.md:** added two worked examples — uploading a screenshot and downloading an attachment to a local path
+- [x] move this plan: `mkdir -p docs/plans/completed && git mv docs/plans/20260501-wiki-attachments.md docs/plans/completed/`
 
 ## Technical Details
 
