@@ -183,28 +183,59 @@ func TestDownloadAttachment_NotReady(t *testing.T) {
 	}
 }
 
-func TestDownloadAttachment_DuplicateNames(t *testing.T) {
+func TestDownloadAttachment_DuplicateNames_ErrorListsURLFilenames(t *testing.T) {
 	called := false
 	c, _ := newWiki(t, func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/v1/pages":
 			_, _ = io.WriteString(w, `{"id":42,"slug":"team/notes","title":"T"}`)
 		case "/v1/pages/42/attachments":
-			_, _ = io.WriteString(w, `{"results":[{"id":1,"name":"x","check_status":"ready"},{"id":2,"name":"x","check_status":"ready"}]}`)
+			_, _ = io.WriteString(w, `{"results":[{"id":1,"name":"image.png","download_url":"/team/notes/.files/image.png","check_status":"ready"},{"id":2,"name":"image.png","download_url":"/team/notes/.files/image-1.png","check_status":"ready"}]}`)
 		case "/v1/pages/attachments/download_by_url":
 			called = true
 		}
 	})
 
-	err := c.DownloadAttachment(context.Background(), "team/notes", "x", io.Discard)
+	err := c.DownloadAttachment(context.Background(), "team/notes", "image.png", io.Discard)
 	if err == nil {
 		t.Fatal("want error")
 	}
-	if !strings.Contains(err.Error(), "multiple attachments named") {
-		t.Errorf("err = %v", err)
+	for _, want := range []string{"multiple attachments named", "image.png", "image-1.png"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("err missing %q: %v", want, err)
+		}
 	}
 	if called {
 		t.Error("download must not run on ambiguous match")
+	}
+}
+
+// Yandex Wiki accepts duplicate `name` values, so the original error-out
+// behavior locked users out of pages with same-named attachments. Pin the
+// fallback: passing the URL filename (server-unique) resolves the ambiguity.
+func TestDownloadAttachment_ResolvesByURLFilename(t *testing.T) {
+	var sentURL string
+	c, _ := newWiki(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/pages":
+			_, _ = io.WriteString(w, `{"id":42,"slug":"team/notes","title":"T"}`)
+		case "/v1/pages/42/attachments":
+			_, _ = io.WriteString(w, `{"results":[{"id":1,"name":"image.png","download_url":"/team/notes/.files/image.png","check_status":"ready"},{"id":2,"name":"image.png","download_url":"/team/notes/.files/image-1.png","check_status":"ready"}]}`)
+		case "/v1/pages/attachments/download_by_url":
+			sentURL = r.URL.Query().Get("url")
+			_, _ = w.Write([]byte("PNG2"))
+		}
+	})
+
+	var buf bytes.Buffer
+	if err := c.DownloadAttachment(context.Background(), "team/notes", "image-1.png", &buf); err != nil {
+		t.Fatal(err)
+	}
+	if sentURL != "team/notes/.files/image-1.png" {
+		t.Errorf("download_by_url url = %q, want second attachment", sentURL)
+	}
+	if buf.String() != "PNG2" {
+		t.Errorf("body = %q", buf.String())
 	}
 }
 
@@ -336,24 +367,50 @@ func TestDeleteAttachment_NotFound(t *testing.T) {
 	}
 }
 
-func TestDeleteAttachment_DuplicateNames(t *testing.T) {
+func TestDeleteAttachment_DuplicateNames_ErrorListsURLFilenames(t *testing.T) {
 	deleteCalled := false
 	c, _ := newWiki(t, func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/v1/pages":
 			_, _ = io.WriteString(w, `{"id":42,"slug":"team/notes","title":"T"}`)
 		case r.Method == http.MethodGet && r.URL.Path == "/v1/pages/42/attachments":
-			_, _ = io.WriteString(w, `{"results":[{"id":1,"name":"x"},{"id":2,"name":"x"}]}`)
+			_, _ = io.WriteString(w, `{"results":[{"id":1,"name":"x","download_url":"/team/notes/.files/x.bin"},{"id":2,"name":"x","download_url":"/team/notes/.files/x-1.bin"}]}`)
 		case r.Method == http.MethodDelete:
 			deleteCalled = true
 		}
 	})
 	err := c.DeleteAttachment(context.Background(), "team/notes", "x")
-	if err == nil || !strings.Contains(err.Error(), "multiple attachments named") {
-		t.Fatalf("err = %v", err)
+	if err == nil {
+		t.Fatal("want error")
+	}
+	for _, want := range []string{"multiple attachments named", "x.bin", "x-1.bin"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("err missing %q: %v", want, err)
+		}
 	}
 	if deleteCalled {
 		t.Error("DELETE must not run on ambiguity")
+	}
+}
+
+func TestDeleteAttachment_ResolvesByURLFilename(t *testing.T) {
+	deletedID := ""
+	c, _ := newWiki(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/pages":
+			_, _ = io.WriteString(w, `{"id":42,"slug":"team/notes","title":"T"}`)
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/pages/42/attachments":
+			_, _ = io.WriteString(w, `{"results":[{"id":1,"name":"x","download_url":"/team/notes/.files/x.bin"},{"id":2,"name":"x","download_url":"/team/notes/.files/x-1.bin"}]}`)
+		case r.Method == http.MethodDelete && strings.HasPrefix(r.URL.Path, "/v1/pages/42/attachments/"):
+			deletedID = strings.TrimPrefix(r.URL.Path, "/v1/pages/42/attachments/")
+			w.WriteHeader(204)
+		}
+	})
+	if err := c.DeleteAttachment(context.Background(), "team/notes", "x-1.bin"); err != nil {
+		t.Fatal(err)
+	}
+	if deletedID != "2" {
+		t.Errorf("deleted id = %q, want 2 (the row whose URL filename was passed)", deletedID)
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 
 	"github.com/butvinm/yandex-skill/internal/render"
@@ -84,23 +85,37 @@ func (c *Client) listAttachmentsByID(ctx context.Context, pageID int64) ([]Attac
 	}
 }
 
-// pickUniqueByName picks the single attachment with the given name from atts.
-// Returns one of two stable error messages on miss/duplicate so callers
-// share the contract.
-func pickUniqueByName(atts []Attachment, pageSlug, filename string) (*Attachment, error) {
-	var matches []Attachment
-	for _, a := range atts {
-		if a.Name == filename {
-			matches = append(matches, a)
+// pickAttachment picks the single attachment matching ident on the page.
+// ident is matched against the attachment's `name` first; if that's
+// ambiguous it falls back to the last segment of `download_url`, which
+// the server makes unique by suffixing duplicates (`foo.png`,
+// `foo-1.png`, `foo-2.png`...). On unresolvable ambiguity the error
+// lists the URL-filename forms so the caller can re-run with one.
+func pickAttachment(atts []Attachment, pageSlug, ident string) (*Attachment, error) {
+	var byName, byURLName []*Attachment
+	for i := range atts {
+		a := &atts[i]
+		if a.Name == ident {
+			byName = append(byName, a)
+		}
+		if path.Base(a.DownloadURL) == ident {
+			byURLName = append(byURLName, a)
 		}
 	}
-	switch len(matches) {
-	case 0:
-		return nil, fmt.Errorf("attachment %q not found on page %q", filename, pageSlug)
+	switch len(byName) {
 	case 1:
-		return &matches[0], nil
+		return byName[0], nil
+	case 0:
+		if len(byURLName) == 1 {
+			return byURLName[0], nil
+		}
+		return nil, fmt.Errorf("attachment %q not found on page %q", ident, pageSlug)
 	default:
-		return nil, fmt.Errorf("multiple attachments named %q on %q; disambiguate via --json list", filename, pageSlug)
+		hints := make([]string, 0, len(byName))
+		for _, a := range byName {
+			hints = append(hints, path.Base(a.DownloadURL))
+		}
+		return nil, fmt.Errorf("multiple attachments named %q on %q; pass one of these URL filenames instead: %s", ident, pageSlug, strings.Join(hints, ", "))
 	}
 }
 
@@ -112,7 +127,7 @@ func (c *Client) DownloadAttachment(ctx context.Context, pageSlug, filename stri
 	if err != nil {
 		return err
 	}
-	att, err := pickUniqueByName(atts, pageSlug, filename)
+	att, err := pickAttachment(atts, pageSlug, filename)
 	if err != nil {
 		return err
 	}
@@ -174,7 +189,7 @@ func (c *Client) DeleteAttachment(ctx context.Context, pageSlug, filename string
 	if err != nil {
 		return err
 	}
-	att, err := pickUniqueByName(atts, pageSlug, filename)
+	att, err := pickAttachment(atts, pageSlug, filename)
 	if err != nil {
 		return err
 	}
