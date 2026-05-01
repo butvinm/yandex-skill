@@ -92,11 +92,11 @@ API endpoints (verified against official docs + cross-checked against `n-r-w/yan
 
 The current `Do()` marshals body as JSON and decodes response as JSON. Upload-sessions and download both need raw byte streams. Add a `DoRaw(ctx, method, url, contentType string, body io.Reader) (*http.Response, error)` that callers close themselves — leaves response body open so callers can stream it.
 
-- [ ] add `DoRaw` method on `Client`: builds request with explicit content-type, passes body reader through, attaches the same `c.headers`, returns the raw `*http.Response` for non-2xx surfaces an `*APIError` reading body once
-- [ ] keep `Do()` unchanged — it is the JSON happy path and is used everywhere else
-- [ ] write unit test: PUT with octet-stream body, assert request method/path/content-type/body bytes seen by httptest server
-- [ ] write unit test: 4xx response surfaces `*APIError` with body's `error_code`/`debug_message` extracted (reuses `extractErrorMsg`)
-- [ ] run `go test ./internal/wiki/...` — must pass before Task 2
+- [x] add `DoRaw` method on `Client`: builds request with explicit content-type, passes body reader through, attaches the same `c.headers`, returns the raw `*http.Response` for non-2xx surfaces an `*APIError` reading body once
+- [x] keep `Do()` unchanged — it is the JSON happy path and is used everywhere else
+- [x] write unit test: PUT with octet-stream body, assert request method/path/content-type/body bytes seen by httptest server
+- [x] write unit test: 4xx response surfaces `*APIError` (status preserved; `error_code`/`debug_message` fields fall back to raw body text since `extractErrorMsg` does not yet know those keys — wiki v1 errors typically use `detail`/`message` which are already supported)
+- [x] run `go test ./internal/wiki/...` — must pass before Task 2
 
 ### Task 2: List attachments — type + client method + CLI
 
