@@ -127,12 +127,12 @@ API endpoints already in the client (no new ones for this feature):
 - Modify: `internal/cli/markdown.go`
 - Modify: `internal/cli/markdown_test.go`
 
-- [ ] add `func findLocalAttachmentRefs(content, attachmentsDir string) []string` — returns unique basenames found as `<attachmentsDir>/<X>` substrings in content. Same URL-substring approach (no markdown parsing).
-- [ ] add `func rewriteLocalToServer(content, attachmentsDir string, urlByBasename map[string]string) string` — replace each `<attachmentsDir>/<X>` with `urlByBasename[X]`. If a basename isn't in the map, leave it (caller decides whether to error; this helper is dumb).
-- [ ] regex for discovery: `regexp.MustCompile(regexp.QuoteMeta(attachmentsDir) + `/[^\s)\]"'\}]+`)`. Same matcher principle as Task 2.
-- [ ] write `TestFindLocalAttachmentRefs`: image, file directive, mixed, none, duplicates collapsed to unique
-- [ ] write `TestRewriteLocalToServer`: image rewritten to server URL, file directive rewritten, missing-basename left alone
-- [ ] run tests — must pass before Task 4
+- [x] add `func findLocalAttachmentRefs(content, attachmentsDir string) []string` — returns unique basenames found as `<attachmentsDir>/<X>` substrings in content. Same URL-substring approach (no markdown parsing).
+- [x] add `func rewriteLocalToServer(content, attachmentsDir string, urlByBasename map[string]string) string` — replace each `<attachmentsDir>/<X>` with `urlByBasename[X]`. If a basename isn't in the map, leave it (caller decides whether to error; this helper is dumb).
+- [x] regex for discovery: `regexp.MustCompile(regexp.QuoteMeta(attachmentsDir) + `/[^\s)\]"'\}]+`)`. Same matcher principle as Task 2.
+- [x] write `TestFindLocalAttachmentRefs`: image, file directive, mixed, none, duplicates collapsed to unique
+- [x] write `TestRewriteLocalToServer`: image rewritten to server URL, file directive rewritten, missing-basename left alone
+- [x] run tests — must pass before Task 4
 
 ### Task 4: `--output` flag on `wiki pages get` (no `--attachments-dir` path)
 
