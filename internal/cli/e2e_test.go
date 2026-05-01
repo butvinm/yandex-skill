@@ -250,7 +250,7 @@ func TestE2E_WikiAttachmentsList_Plain(t *testing.T) {
 		case "/v1/pages":
 			_, _ = io.WriteString(w, `{"id":42,"slug":"team/notes","title":"T"}`)
 		case "/v1/pages/42/attachments":
-			_, _ = io.WriteString(w, `{"results":[{"id":1,"name":"diagram.png","size":2048,"mimetype":"image/png","download_url":"https://wiki.example/d/1","created_at":"2026-05-01","check_status":"ready"},{"id":2,"name":"draft.md","size":300,"mimetype":"text/markdown","download_url":"https://wiki.example/d/2","created_at":"2026-05-01","check_status":"ready"}]}`)
+			_, _ = io.WriteString(w, `{"results":[{"id":1,"name":"diagram.png","size":"0.00","mimetype":"image/png","download_url":"https://wiki.example/d/1","created_at":"2026-05-01","check_status":"ready"},{"id":2,"name":"draft.md","size":"0.00","mimetype":"text/markdown","download_url":"https://wiki.example/d/2","created_at":"2026-05-01","check_status":"ready"}]}`)
 		default:
 			t.Errorf("unexpected path %s", r.URL.Path)
 		}
@@ -266,7 +266,7 @@ func TestE2E_WikiAttachmentsList_Plain(t *testing.T) {
 	if exit != 0 {
 		t.Fatalf("exit=%d stderr=%s", exit, stderr)
 	}
-	want := "diagram.png  2KB  image/png  2026-05-01  https://wiki.example/d/1\ndraft.md  300B  text/markdown  2026-05-01  https://wiki.example/d/2\n"
+	want := "diagram.png  image/png  2026-05-01  https://wiki.example/d/1\ndraft.md  text/markdown  2026-05-01  https://wiki.example/d/2\n"
 	if stdout != want {
 		t.Errorf("stdout = %q\nwant      %q", stdout, want)
 	}
@@ -278,7 +278,7 @@ func TestE2E_WikiAttachmentsList_JSON(t *testing.T) {
 		case "/v1/pages":
 			_, _ = io.WriteString(w, `{"id":42,"slug":"team/notes","title":"T"}`)
 		case "/v1/pages/42/attachments":
-			_, _ = io.WriteString(w, `{"results":[{"id":1,"name":"diagram.png","size":2048,"mimetype":"image/png","check_status":"ready"}]}`)
+			_, _ = io.WriteString(w, `{"results":[{"id":1,"name":"diagram.png","size":"0.00","mimetype":"image/png","check_status":"ready"}]}`)
 		}
 	}))
 	defer srv.Close()
@@ -292,7 +292,7 @@ func TestE2E_WikiAttachmentsList_JSON(t *testing.T) {
 	if exit != 0 {
 		t.Fatalf("exit = %d", exit)
 	}
-	for _, want := range []string{`"name": "diagram.png"`, `"size": 2048`, `"check_status": "ready"`} {
+	for _, want := range []string{`"name": "diagram.png"`, `"size": "0.00"`, `"check_status": "ready"`} {
 		if !strings.Contains(stdout, want) {
 			t.Errorf("stdout missing %s: %q", want, stdout)
 		}

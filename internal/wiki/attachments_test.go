@@ -13,41 +13,41 @@ import (
 func TestAttachment_Plain(t *testing.T) {
 	a := Attachment{
 		Name:        "ss.png",
-		Size:        2048,
+		Size:        "0.10",
 		Mimetype:    "image/png",
 		CreatedAt:   "2026-05-01",
 		DownloadURL: "https://api.wiki.yandex.net/v1/.../download/abc",
 	}
 	got := a.Plain()
-	want := "ss.png  2KB  image/png  2026-05-01  https://api.wiki.yandex.net/v1/.../download/abc"
+	want := "ss.png  image/png  2026-05-01  https://api.wiki.yandex.net/v1/.../download/abc"
 	if got != want {
 		t.Errorf("got %q want %q", got, want)
 	}
 }
 
 func TestAttachment_Row_SkipsEmptyMimeAndURL(t *testing.T) {
-	a := Attachment{Name: "x", Size: 0, CreatedAt: "2026-05-01"}
+	a := Attachment{Name: "x", CreatedAt: "2026-05-01"}
 	got := a.Row()
-	want := "x  0B  2026-05-01"
+	want := "x  2026-05-01"
 	if got != want {
 		t.Errorf("got %q want %q", got, want)
 	}
 }
 
-func TestHumanSize(t *testing.T) {
-	cases := map[int64]string{
-		0:                   "0B",
-		512:                 "512B",
-		1024:                "1KB",
-		1536:                "1KB",
-		1024 * 1024:         "1.0MB",
-		3 * 1024 * 1024 / 2: "1.5MB",
-		1024 * 1024 * 1024:  "1.0GB",
+// Yandex Wiki returns size as a quoted decimal string ("0.00", "0.10")
+// rather than a JSON number. Decoding into an int64 used to fail on every
+// real attachment; pin the wire shape here so we don't regress.
+func TestAttachment_DecodesAPIShape(t *testing.T) {
+	body := `{"id":12465011,"name":"docker-compose_keycloak.yml","size":"0.00","mimetype":"application/octet-stream","download_url":"/documentation/kekloack/.files/docker-composekeycloak.yml","created_at":"2022-09-09T12:57:23.323Z","check_status":"ready","has_preview":false}`
+	var a Attachment
+	if err := json.Unmarshal([]byte(body), &a); err != nil {
+		t.Fatalf("unmarshal: %v", err)
 	}
-	for n, want := range cases {
-		if got := humanSize(n); got != want {
-			t.Errorf("humanSize(%d) = %q, want %q", n, got, want)
-		}
+	if a.Size != "0.00" {
+		t.Errorf("Size = %q, want %q", a.Size, "0.00")
+	}
+	if a.Name != "docker-compose_keycloak.yml" {
+		t.Errorf("Name = %q", a.Name)
 	}
 }
 
@@ -68,10 +68,10 @@ func TestListAttachments_ResolvesSlugThenPaginates(t *testing.T) {
 				t.Errorf("page_size = %s", r.URL.Query().Get("page_size"))
 			}
 			if calls == 1 {
-				_, _ = io.WriteString(w, `{"results":[{"id":1,"name":"a.png","size":10,"mimetype":"image/png","check_status":"ready"}],"next_cursor":"c2"}`)
+				_, _ = io.WriteString(w, `{"results":[{"id":1,"name":"a.png","size":"10","mimetype":"image/png","check_status":"ready"}],"next_cursor":"c2"}`)
 				return
 			}
-			_, _ = io.WriteString(w, `{"results":[{"id":2,"name":"b.pdf","size":20,"check_status":"ready"}]}`)
+			_, _ = io.WriteString(w, `{"results":[{"id":2,"name":"b.pdf","size":"20","check_status":"ready"}]}`)
 		default:
 			t.Errorf("unexpected path %s", r.URL.Path)
 		}
@@ -215,7 +215,7 @@ func TestUploadAttachment_FullFlow(t *testing.T) {
 			if len(sent.UploadSessions) != 1 || sent.UploadSessions[0] != "u-1" {
 				t.Errorf("attach req = %+v", sent)
 			}
-			_, _ = io.WriteString(w, `{"results":[{"id":7,"name":"diagram.png","size":7,"check_status":"ready"}]}`)
+			_, _ = io.WriteString(w, `{"results":[{"id":7,"name":"diagram.png","size":"7","check_status":"ready"}]}`)
 		default:
 			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
 		}

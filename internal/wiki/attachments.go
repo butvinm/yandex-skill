@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 
 	"github.com/butvinm/yandex-skill/internal/render"
 )
@@ -17,9 +16,13 @@ import (
 const MaxAttachmentSize = 16 * 1024 * 1024
 
 type Attachment struct {
-	ID          int64  `json:"id"`
-	Name        string `json:"name"`
-	Size        int64  `json:"size"`
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+	// Size is the API's reported size as a free-form string. Yandex Wiki
+	// returns it quoted in JSON (e.g. "0.10") with units that aren't
+	// documented and small files truncate to "0.00", so the value is
+	// passed through verbatim and not surfaced in plain output.
+	Size        string `json:"size"`
 	Mimetype    string `json:"mimetype"`
 	DownloadURL string `json:"download_url"`
 	CreatedAt   string `json:"created_at"`
@@ -27,33 +30,15 @@ type Attachment struct {
 	HasPreview  bool   `json:"has_preview"`
 }
 
-// Plain emits "name  size  mime  created_at  download_url" with two-space
+// Plain emits "name  mime  created_at  download_url" with two-space
 // separators. download_url trails because it's the longest field; agents
 // embedding into markdown can extract it with `awk -F'  ' '{print $NF}'`.
 // Empty fields (e.g. unknown mime) are skipped via render.SkipEmpty.
 func (a Attachment) Plain() string {
-	return render.SkipEmpty(a.Name, humanSize(a.Size), a.Mimetype, a.CreatedAt, a.DownloadURL)
+	return render.SkipEmpty(a.Name, a.Mimetype, a.CreatedAt, a.DownloadURL)
 }
 
 func (a Attachment) Row() string { return a.Plain() }
-
-func humanSize(n int64) string {
-	const (
-		kb = 1024
-		mb = 1024 * kb
-		gb = 1024 * mb
-	)
-	switch {
-	case n >= gb:
-		return fmt.Sprintf("%.1fGB", float64(n)/float64(gb))
-	case n >= mb:
-		return fmt.Sprintf("%.1fMB", float64(n)/float64(mb))
-	case n >= kb:
-		return strconv.FormatInt(n/kb, 10) + "KB"
-	default:
-		return strconv.FormatInt(n, 10) + "B"
-	}
-}
 
 type attachmentsPage struct {
 	Results    []Attachment `json:"results"`
