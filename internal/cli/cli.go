@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/alecthomas/kong"
 
@@ -55,7 +56,8 @@ type TrackerQueuesCmd struct {
 }
 
 type WikiCmd struct {
-	Pages WikiPagesCmd `cmd:"" help:"pages"`
+	Pages       WikiPagesCmd       `cmd:"" help:"pages"`
+	Attachments WikiAttachmentsCmd `cmd:"" help:"page attachments"`
 }
 
 type WikiPagesCmd struct {
@@ -63,6 +65,13 @@ type WikiPagesCmd struct {
 	Get    GetPageCmd    `cmd:"" help:"get a page by slug"`
 	Create CreatePageCmd `cmd:"" help:"create a page"`
 	Update UpdatePageCmd `cmd:"" help:"update a page body"`
+}
+
+type WikiAttachmentsCmd struct {
+	List     ListAttachmentsCmd    `cmd:"" help:"list attachments on a page"`
+	Upload   UploadAttachmentCmd   `cmd:"" help:"upload a file to a page"`
+	Download DownloadAttachmentCmd `cmd:"" help:"download an attachment by page slug + filename"`
+	Delete   DeleteAttachmentCmd   `cmd:"" help:"delete an attachment by page slug + filename"`
 }
 
 type VersionCmd struct{}
@@ -140,7 +149,9 @@ func (c *ListQueuesCmd) Run(g *Globals) error {
 // --- Wiki commands ---
 
 type GetPageCmd struct {
-	Slug string `arg:"" help:"page slug (e.g. team/notes/2026-04-29)"`
+	Slug           string `arg:"" help:"page slug (e.g. team/notes/2026-04-29)"`
+	Output         string `name:"output" help:"write raw page content to file ('-' for stdout); default: stdout via Plain rendering"`
+	AttachmentsDir string `name:"attachments-dir" help:"sync attachments to local directory and rewrite content URLs to local relative paths (YFM markdown only; refuses grid pages, warns on legacy)"`
 }
 
 func (c *GetPageCmd) Run(g *Globals) error {
@@ -148,11 +159,40 @@ func (c *GetPageCmd) Run(g *Globals) error {
 	if err != nil {
 		return err
 	}
-	p, err := wiki.New(cfg).GetPage(g.Ctx, c.Slug)
+	client := wiki.New(cfg)
+	p, err := client.GetPage(g.Ctx, c.Slug)
 	if err != nil {
 		return err
 	}
+	if c.AttachmentsDir != "" {
+		rewritten, err := syncAttachmentsForGet(g.Ctx, client, p, c.AttachmentsDir, g.Stderr)
+		if err != nil {
+			return err
+		}
+		// With --attachments-dir, content is the round-trip artifact; the
+		// title-prefixed Plain() rendering would corrupt that. Default to
+		// raw stdout when --output isn't given.
+		out := c.Output
+		if out == "" {
+			out = "-"
+		}
+		return writeRawContent(g.Stdout, out, rewritten)
+	}
+	if c.Output != "" {
+		return writeRawContent(g.Stdout, c.Output, p.Content)
+	}
 	return render.One(g.Stdout, g.Format(), *p)
+}
+
+// writeRawContent writes content verbatim either to stdout (when output is
+// "-") or to the named file. Used by --output to bypass the title-prefixed
+// Plain() rendering and produce a clean markdown round-trip artifact.
+func writeRawContent(stdout io.Writer, output, content string) error {
+	if output == "-" {
+		_, err := io.WriteString(stdout, content)
+		return err
+	}
+	return os.WriteFile(output, []byte(content), 0o644)
 }
 
 type ListPagesCmd struct {
@@ -172,8 +212,9 @@ func (c *ListPagesCmd) Run(g *Globals) error {
 }
 
 type CreatePageCmd struct {
-	Slug  string `name:"slug" required:"" help:"target slug"`
-	Title string `name:"title" required:"" help:"page title"`
+	Slug           string `name:"slug" required:"" help:"target slug"`
+	Title          string `name:"title" required:"" help:"page title"`
+	AttachmentsDir string `name:"attachments-dir" help:"upload referenced local files and rewrite content URLs to server form (always wysiwyg for new pages)"`
 	BodyInput
 }
 
@@ -182,19 +223,42 @@ func (c *CreatePageCmd) Run(g *Globals) error {
 	if err != nil {
 		return err
 	}
+	client := wiki.New(cfg)
 	body, err := c.Read(g.Stdin)
 	if err != nil {
 		return err
 	}
-	p, err := wiki.New(cfg).CreatePage(g.Ctx, c.Slug, c.Title, body)
+	if c.AttachmentsDir == "" {
+		p, err := client.CreatePage(g.Ctx, c.Slug, c.Title, body)
+		if err != nil {
+			return err
+		}
+		return render.Confirm(g.Stdout, g.Format(), "created", p.Slug)
+	}
+	// Two-phase: create empty page first so we have a page id to bind
+	// attachments to, then upload + rewrite + update. The Wiki API binds
+	// attachments to a page id, not a slug, so this ordering is forced.
+	p, err := client.CreatePage(g.Ctx, c.Slug, c.Title, "")
 	if err != nil {
+		return err
+	}
+	// API-created pages are always page_type=wysiwyg (verified
+	// empirically); the create response doesn't always include the field,
+	// so set it explicitly for the orchestrator's guard.
+	p.PageType = wiki.PageTypeWysiwyg
+	rewritten, err := syncAttachmentsForWrite(g.Ctx, client, p, body, c.AttachmentsDir, g.Stderr)
+	if err != nil {
+		return err
+	}
+	if _, err := client.UpdatePage(g.Ctx, c.Slug, rewritten); err != nil {
 		return err
 	}
 	return render.Confirm(g.Stdout, g.Format(), "created", p.Slug)
 }
 
 type UpdatePageCmd struct {
-	Slug string `arg:"" help:"page slug"`
+	Slug           string `arg:"" help:"page slug"`
+	AttachmentsDir string `name:"attachments-dir" help:"upload referenced local files and rewrite content URLs to server form (YFM markdown only; refuses grid pages, warns on legacy)"`
 	BodyInput
 }
 
@@ -203,15 +267,116 @@ func (c *UpdatePageCmd) Run(g *Globals) error {
 	if err != nil {
 		return err
 	}
+	client := wiki.New(cfg)
 	body, err := c.Read(g.Stdin)
 	if err != nil {
 		return err
 	}
-	p, err := wiki.New(cfg).UpdatePage(g.Ctx, c.Slug, body)
+	if c.AttachmentsDir != "" {
+		page, err := client.GetPage(g.Ctx, c.Slug)
+		if err != nil {
+			return err
+		}
+		body, err = syncAttachmentsForWrite(g.Ctx, client, page, body, c.AttachmentsDir, g.Stderr)
+		if err != nil {
+			return err
+		}
+	}
+	p, err := client.UpdatePage(g.Ctx, c.Slug, body)
 	if err != nil {
 		return err
 	}
 	return render.Confirm(g.Stdout, g.Format(), "updated", p.Slug)
+}
+
+// --- Wiki attachments commands ---
+
+type ListAttachmentsCmd struct {
+	PageSlug string `arg:"" name:"page-slug" help:"page slug"`
+}
+
+func (c *ListAttachmentsCmd) Run(g *Globals) error {
+	cfg, err := auth.Load()
+	if err != nil {
+		return err
+	}
+	atts, err := wiki.New(cfg).ListAttachments(g.Ctx, c.PageSlug)
+	if err != nil {
+		return err
+	}
+	return render.Many(g.Stdout, g.Format(), atts)
+}
+
+type DownloadAttachmentCmd struct {
+	PageSlug string `arg:"" name:"page-slug" help:"page slug"`
+	Filename string `arg:"" name:"filename" help:"attachment filename"`
+	Output   string `name:"output" default:"-" help:"output path; '-' for stdout"`
+}
+
+func (c *DownloadAttachmentCmd) Run(g *Globals) error {
+	cfg, err := auth.Load()
+	if err != nil {
+		return err
+	}
+	var w io.Writer
+	if c.Output == "-" {
+		w = g.Stdout
+	} else {
+		f, err := os.Create(c.Output)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		w = f
+	}
+	return wiki.New(cfg).DownloadAttachment(g.Ctx, c.PageSlug, c.Filename, w)
+}
+
+type UploadAttachmentCmd struct {
+	PageSlug string `arg:"" name:"page-slug" help:"page slug"`
+	File     string `name:"file" required:"" help:"local file path to upload"`
+	Name     string `name:"name" help:"attachment filename (defaults to basename of --file)"`
+}
+
+func (c *UploadAttachmentCmd) Run(g *Globals) error {
+	cfg, err := auth.Load()
+	if err != nil {
+		return err
+	}
+	f, err := os.Open(c.File)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	name := c.Name
+	if name == "" {
+		name = filepath.Base(c.File)
+	}
+	att, err := wiki.New(cfg).UploadAttachment(g.Ctx, c.PageSlug, name, f, info.Size())
+	if err != nil {
+		return err
+	}
+	return render.Confirm(g.Stdout, g.Format(), "uploaded", att.Name)
+}
+
+type DeleteAttachmentCmd struct {
+	PageSlug string `arg:"" name:"page-slug" help:"page slug"`
+	Filename string `arg:"" name:"filename" help:"attachment filename"`
+}
+
+func (c *DeleteAttachmentCmd) Run(g *Globals) error {
+	cfg, err := auth.Load()
+	if err != nil {
+		return err
+	}
+	if err := wiki.New(cfg).DeleteAttachment(g.Ctx, c.PageSlug, c.Filename); err != nil {
+		return err
+	}
+	return render.Confirm(g.Stdout, g.Format(), "deleted", c.Filename)
 }
 
 // Run parses argv and dispatches to the matched command. Returns the exit code.

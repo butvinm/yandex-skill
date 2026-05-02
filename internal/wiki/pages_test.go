@@ -3,10 +3,12 @@ package wiki
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/butvinm/yandex-skill/internal/auth"
@@ -37,9 +39,18 @@ func TestPage_Plain_SkipsEmpty(t *testing.T) {
 }
 
 func TestPageRef_Row(t *testing.T) {
-	p := PageRef{ID: 1, Slug: "team/notes"}
-	if got := p.Row(); got != "team/notes" {
-		t.Errorf("got %q", got)
+	cases := []struct {
+		name string
+		in   PageRef
+		want string
+	}{
+		{"slug only when title fetch failed", PageRef{ID: 1, Slug: "team/notes"}, "team/notes"},
+		{"slug + title", PageRef{ID: 1, Slug: "team/notes", Title: "Notes"}, "team/notes  Notes"},
+	}
+	for _, tc := range cases {
+		if got := tc.in.Row(); got != tc.want {
+			t.Errorf("%s: got %q want %q", tc.name, got, tc.want)
+		}
 	}
 }
 
@@ -67,39 +78,130 @@ func TestGetPage_RequestsFieldsContent(t *testing.T) {
 	}
 }
 
-func TestListPages_Paginates(t *testing.T) {
-	calls := 0
-	c, _ := newWiki(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v1/pages/descendants" {
-			t.Errorf("path = %s", r.URL.Path)
-		}
-		q := r.URL.Query()
-		if q.Get("slug") != "team" {
-			t.Errorf("slug = %s", q.Get("slug"))
-		}
-		calls++
-		if calls == 1 {
-			if q.Get("cursor") != "" {
-				t.Errorf("first call should have no cursor, got %q", q.Get("cursor"))
+func TestGetPage_DecodesPageType(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+		want string
+	}{
+		{"wysiwyg", `{"id":1,"slug":"s","title":"T","page_type":"wysiwyg","content":""}`, PageTypeWysiwyg},
+		{"page", `{"id":1,"slug":"s","title":"T","page_type":"page","content":""}`, PageTypePage},
+		{"grid", `{"id":1,"slug":"s","title":"T","page_type":"grid","content":""}`, PageTypeGrid},
+		{"missing field is empty", `{"id":1,"slug":"s","title":"T","content":""}`, ""},
+		{"unknown value passes through", `{"id":1,"slug":"s","title":"T","page_type":"future_kind","content":""}`, "future_kind"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			body := tc.body
+			c, _ := newWiki(t, func(w http.ResponseWriter, r *http.Request) {
+				_, _ = io.WriteString(w, body)
+			})
+			got, err := c.GetPage(context.Background(), "s")
+			if err != nil {
+				t.Fatal(err)
 			}
-			_, _ = io.WriteString(w, `{"results":[{"id":1,"slug":"team/a"}],"next_cursor":"c2"}`)
-			return
+			if got.PageType != tc.want {
+				t.Errorf("PageType = %q, want %q", got.PageType, tc.want)
+			}
+		})
+	}
+}
+
+func TestListPages_PaginatesAndEnrichesTitles(t *testing.T) {
+	descCalls := 0
+	titleCalls := map[string]int{}
+	var mu sync.Mutex
+	c, _ := newWiki(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/pages/descendants":
+			mu.Lock()
+			descCalls++
+			mu.Unlock()
+			q := r.URL.Query()
+			if q.Get("slug") != "team" {
+				t.Errorf("slug = %s", q.Get("slug"))
+			}
+			if descCalls == 1 {
+				if q.Get("cursor") != "" {
+					t.Errorf("first call should have no cursor, got %q", q.Get("cursor"))
+				}
+				_, _ = io.WriteString(w, `{"results":[{"id":1,"slug":"team/a"}],"next_cursor":"c2"}`)
+				return
+			}
+			if q.Get("cursor") != "c2" {
+				t.Errorf("second call cursor = %q", q.Get("cursor"))
+			}
+			_, _ = io.WriteString(w, `{"results":[{"id":2,"slug":"team/b"}]}`)
+		case "/v1/pages":
+			slug := r.URL.Query().Get("slug")
+			if r.URL.Query().Get("fields") == "content" {
+				t.Errorf("title-only fetch must not request fields=content (slug=%s)", slug)
+			}
+			mu.Lock()
+			titleCalls[slug]++
+			mu.Unlock()
+			titles := map[string]string{
+				"team/a": "Alpha",
+				"team/b": "Beta",
+			}
+			fmt.Fprintf(w, `{"id":0,"slug":%q,"title":%q}`, slug, titles[slug])
+		default:
+			t.Errorf("unexpected path %s", r.URL.Path)
 		}
-		if q.Get("cursor") != "c2" {
-			t.Errorf("second call cursor = %q", q.Get("cursor"))
-		}
-		_, _ = io.WriteString(w, `{"results":[{"id":2,"slug":"team/b"}]}`)
 	})
 
 	got, err := c.ListPages(context.Background(), "team")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if calls != 2 {
-		t.Errorf("calls = %d", calls)
+	if descCalls != 2 {
+		t.Errorf("descendant calls = %d", descCalls)
 	}
-	if len(got) != 2 || got[0].Slug != "team/a" || got[1].Slug != "team/b" {
-		t.Errorf("got = %+v", got)
+	if titleCalls["team/a"] != 1 || titleCalls["team/b"] != 1 {
+		t.Errorf("title calls = %v", titleCalls)
+	}
+	if len(got) != 2 {
+		t.Fatalf("got = %+v", got)
+	}
+	want := []PageRef{
+		{ID: 1, Slug: "team/a", Title: "Alpha"},
+		{ID: 2, Slug: "team/b", Title: "Beta"},
+	}
+	for i, w := range want {
+		if got[i] != w {
+			t.Errorf("got[%d] = %+v, want %+v", i, got[i], w)
+		}
+	}
+}
+
+func TestListPages_TitleFetchFailureIsSoft(t *testing.T) {
+	c, _ := newWiki(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/pages/descendants":
+			_, _ = io.WriteString(w, `{"results":[{"id":1,"slug":"team/a"},{"id":2,"slug":"team/b"}]}`)
+		case "/v1/pages":
+			slug := r.URL.Query().Get("slug")
+			if slug == "team/a" {
+				w.WriteHeader(404)
+				_, _ = io.WriteString(w, `{"detail":"gone"}`)
+				return
+			}
+			fmt.Fprintf(w, `{"id":0,"slug":%q,"title":"Beta"}`, slug)
+		}
+	})
+
+	got, err := c.ListPages(context.Background(), "team")
+	if err != nil {
+		t.Fatalf("ListPages must not fail when an individual title fetch errors: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("got = %+v", got)
+	}
+	if got[0].Title != "" {
+		t.Errorf("failed title fetch should leave Title empty, got %q", got[0].Title)
+	}
+	if got[1].Title != "Beta" {
+		t.Errorf("got[1].Title = %q", got[1].Title)
 	}
 }
 

@@ -6,8 +6,18 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sync"
 
 	"github.com/butvinm/yandex-skill/internal/render"
+)
+
+// page_type values returned by the Yandex Wiki API. Returned unsolicited on
+// every /v1/pages response — not in the documented `fields=` allow-list, but
+// always present at the top level of the JSON.
+const (
+	PageTypeWysiwyg = "wysiwyg" // modern Yandex Flavored Markdown
+	PageTypePage    = "page"    // legacy "static markup" pages
+	PageTypeGrid    = "grid"    // dynamic table; content is null, lives at /v1/grids/{id}
 )
 
 type PageAttrs struct {
@@ -19,6 +29,7 @@ type Page struct {
 	ID         int64     `json:"id"`
 	Slug       string    `json:"slug"`
 	Title      string    `json:"title"`
+	PageType   string    `json:"page_type"`
 	Content    string    `json:"content"`
 	Attributes PageAttrs `json:"attributes"`
 }
@@ -28,11 +39,12 @@ func (p Page) Plain() string {
 }
 
 type PageRef struct {
-	ID   int64  `json:"id"`
-	Slug string `json:"slug"`
+	ID    int64  `json:"id"`
+	Slug  string `json:"slug"`
+	Title string `json:"title,omitempty"`
 }
 
-func (p PageRef) Row() string { return p.Slug }
+func (p PageRef) Row() string { return render.SkipEmpty(p.Slug, p.Title) }
 
 func (c *Client) GetPage(ctx context.Context, slug string) (*Page, error) {
 	q := url.Values{}
@@ -44,6 +56,20 @@ func (c *Client) GetPage(ctx context.Context, slug string) (*Page, error) {
 		return nil, err
 	}
 	return &out, nil
+}
+
+// getPageTitle fetches just the page title (omits the heavy `fields=content`
+// query parameter). Used by ListPages's title-enrichment fan-out.
+func (c *Client) getPageTitle(ctx context.Context, slug string) (string, error) {
+	q := url.Values{}
+	q.Set("slug", slug)
+	var out struct {
+		Title string `json:"title"`
+	}
+	if _, err := c.Do(ctx, http.MethodGet, "/v1/pages?"+q.Encode(), nil, &out); err != nil {
+		return "", err
+	}
+	return out.Title, nil
 }
 
 type descendantsPage struct {
@@ -71,10 +97,40 @@ func (c *Client) ListPages(ctx context.Context, parent string) ([]PageRef, error
 		}
 		all = append(all, page.Results...)
 		if page.NextCursor == "" {
-			return all, nil
+			break
 		}
 		cursor = page.NextCursor
 	}
+	c.enrichTitles(ctx, all)
+	return all, nil
+}
+
+// enrichTitles fans out one title fetch per descendant. The
+// /v1/pages/descendants endpoint returns id+slug only, but slug-only
+// listings are ambiguous (e.g. "ai-services/ai-serv" titled "AI Services
+// old" — an LLM can't tell that's the outdated page from the slug alone).
+//
+// Failures are silent: a per-page fetch error leaves Title empty and the
+// row renders as slug-only. Callers see partial enrichment instead of an
+// aborted list. Bounded at 10 concurrent fetches to keep large trees
+// under control without hammering the API.
+func (c *Client) enrichTitles(ctx context.Context, refs []PageRef) {
+	const maxConcurrent = 10
+	sem := make(chan struct{}, maxConcurrent)
+	var wg sync.WaitGroup
+	for i := range refs {
+		i := i
+		wg.Add(1)
+		sem <- struct{}{}
+		go func() {
+			defer wg.Done()
+			defer func() { <-sem }()
+			if title, err := c.getPageTitle(ctx, refs[i].Slug); err == nil {
+				refs[i].Title = title
+			}
+		}()
+	}
+	wg.Wait()
 }
 
 type createPageBody struct {
