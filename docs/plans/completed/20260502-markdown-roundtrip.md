@@ -240,8 +240,8 @@ API endpoints already in the client (no new ones for this feature):
 
 ### Task 10: Move plan to completed
 
-- [ ] `git mv docs/plans/20260502-markdown-roundtrip.md docs/plans/completed/20260502-markdown-roundtrip.md`
-- [ ] commit the move
+- [x] `git mv docs/plans/20260502-markdown-roundtrip.md docs/plans/completed/20260502-markdown-roundtrip.md`
+- [x] commit the move
 
 ## Technical Details
 
