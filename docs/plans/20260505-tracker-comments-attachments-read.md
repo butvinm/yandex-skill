@@ -130,13 +130,11 @@ The shape mirrors the wiki side: `wiki attachments list/download` already exists
 - Modify: `internal/tracker/attachments.go`
 - Modify: `internal/tracker/attachments_test.go`
 
-- [ ] Implement `(c *Client) DownloadAttachment(ctx context.Context, issueKey, id string, w io.Writer) error`:
-  - First call `ListAttachments` to resolve `id → name` (Tracker requires the filename in the URL path). If id not found, return `*APIError{Status: 404, Message: "attachment not found"}`.
-  - Then `DoRaw(GET, "/v3/issues/{key}/attachments/{id}/{name}", nil)`, copy body to `w`, close body.
-- [ ] Write unit test: happy path — fixture server serves a known byte payload; assert exact bytes written to a `bytes.Buffer`.
-- [ ] Write unit test: id-not-found in listing — assert error and that no second HTTP call is made (use a counter on the fixture handler).
-- [ ] Write unit test: 404 on download endpoint — assert error propagates.
-- [ ] Run `go test ./internal/tracker/...` — must pass before Task 5.
+- [x] Implement `DownloadAttachment(ctx, issueKey, id, w)`: ListAttachments → resolve id→name → DoRaw GET → io.Copy to w. Path segments URL-escaped via `net/url`. Don't follow server `content` URL (security: avoids sending auth headers to attacker-controlled hosts if Tracker ever uses CDN URLs).
+- [x] Test: happy path — bytes match exactly.
+- [x] Test: id-not-found — counter on download endpoint asserts 0 calls; error is `*APIError{404}`; output buffer untouched.
+- [x] Test: 404 on download endpoint — error propagates.
+- [x] Run `go test ./internal/tracker/...` — passed.
 
 ### Task 5: Wire CLI commands and e2e tests
 

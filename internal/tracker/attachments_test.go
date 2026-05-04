@@ -1,11 +1,13 @@
 package tracker
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"github.com/butvinm/yandex-skill/internal/auth"
@@ -114,6 +116,84 @@ func TestListAttachments_FollowsLink(t *testing.T) {
 	}
 	if len(got) != 2 || got[0].ID != "1" || got[1].ID != "2" {
 		t.Errorf("got = %+v", got)
+	}
+}
+
+func TestDownloadAttachment_HappyPath(t *testing.T) {
+	payload := []byte("\x89PNG\r\n\x1a\nbinary-bytes-here")
+	mux := http.NewServeMux()
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	mux.HandleFunc("/v3/issues/FOO-1/attachments", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `[{"id":"67890","name":"screenshot.png","size":17,"mimetype":"image/png","content":"u"}]`)
+	})
+	mux.HandleFunc("/v3/issues/FOO-1/attachments/67890/screenshot.png", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/png")
+		_, _ = w.Write(payload)
+	})
+	c := New(auth.Config{Token: "t", OrgID: "o", TrackerBaseURL: srv.URL})
+
+	var buf bytes.Buffer
+	if err := c.DownloadAttachment(context.Background(), "FOO-1", "67890", &buf); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(buf.Bytes(), payload) {
+		t.Errorf("got %x\nwant %x", buf.Bytes(), payload)
+	}
+}
+
+func TestDownloadAttachment_IDNotFound_NoDownloadCall(t *testing.T) {
+	var downloads atomic.Int32
+	mux := http.NewServeMux()
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	mux.HandleFunc("/v3/issues/FOO-1/attachments", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `[{"id":"1","name":"a.png"},{"id":"2","name":"b.png"}]`)
+	})
+	mux.HandleFunc("/v3/issues/FOO-1/attachments/", func(w http.ResponseWriter, r *http.Request) {
+		downloads.Add(1)
+		w.WriteHeader(500) // should never be reached
+	})
+	c := New(auth.Config{Token: "t", OrgID: "o", TrackerBaseURL: srv.URL})
+
+	var buf bytes.Buffer
+	err := c.DownloadAttachment(context.Background(), "FOO-1", "999", &buf)
+	if err == nil {
+		t.Fatal("want error")
+	}
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) || apiErr.Status != 404 {
+		t.Errorf("err = %v", err)
+	}
+	if downloads.Load() != 0 {
+		t.Errorf("download endpoint hit %d times, want 0", downloads.Load())
+	}
+	if buf.Len() != 0 {
+		t.Errorf("buf written despite error: %q", buf.String())
+	}
+}
+
+func TestDownloadAttachment_DownloadEndpoint404(t *testing.T) {
+	mux := http.NewServeMux()
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	mux.HandleFunc("/v3/issues/FOO-1/attachments", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `[{"id":"1","name":"x.bin"}]`)
+	})
+	mux.HandleFunc("/v3/issues/FOO-1/attachments/1/x.bin", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(404)
+		_, _ = io.WriteString(w, `{"errorMessages":["gone"]}`)
+	})
+	c := New(auth.Config{Token: "t", OrgID: "o", TrackerBaseURL: srv.URL})
+
+	var buf bytes.Buffer
+	err := c.DownloadAttachment(context.Background(), "FOO-1", "1", &buf)
+	if err == nil {
+		t.Fatal("want error")
+	}
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) || apiErr.Status != 404 {
+		t.Errorf("err = %v", err)
 	}
 }
 

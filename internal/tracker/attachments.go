@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 
 	"github.com/butvinm/yandex-skill/internal/render"
 )
@@ -48,6 +51,39 @@ func humanSize(bytes int64) string {
 	default:
 		return fmt.Sprintf("%.1f GiB", float64(bytes)/gib)
 	}
+}
+
+// DownloadAttachment streams the binary content of an attachment to w.
+// Tracker's download endpoint requires the original filename in the URL path,
+// so this method first calls ListAttachments to resolve id → name. We don't
+// follow the server-supplied `content` URL directly because doing so would
+// send our auth headers to whatever host the server names, which is unsafe
+// if Tracker ever returns CDN URLs on a different domain.
+func (c *Client) DownloadAttachment(ctx context.Context, issueKey, id string, w io.Writer) error {
+	list, err := c.ListAttachments(ctx, issueKey)
+	if err != nil {
+		return err
+	}
+	var name string
+	for _, a := range list {
+		if a.ID == id {
+			name = a.Name
+			break
+		}
+	}
+	if name == "" {
+		return &APIError{Status: 404, Message: "attachment not found: " + id}
+	}
+	path := "/v3/issues/" + url.PathEscape(issueKey) + "/attachments/" + url.PathEscape(id) + "/" + url.PathEscape(name)
+	resp, err := c.DoRaw(ctx, http.MethodGet, path, "", nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if _, err := io.Copy(w, resp.Body); err != nil {
+		return fmt.Errorf("stream attachment body: %w", err)
+	}
+	return nil
 }
 
 // ListAttachments fetches all attachments on an issue. The Tracker listing
