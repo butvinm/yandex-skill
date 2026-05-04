@@ -94,17 +94,17 @@ The shape mirrors the wiki side: `wiki attachments list/download` already exists
 - Create: `internal/tracker/comments.go`
 - Create: `internal/tracker/comments_test.go`
 
-- [ ] Define `CommentAttachmentRef` struct: `ID string`, `Display string` (filename). JSON tags `id`, `display`. (The `self` URL field is ignored — we use the `id` to cross-reference the issue-level attachments listing.)
-- [ ] Define `Comment` struct: `ID int64`, `LongID string`, `Text string`, `CreatedBy Display`, `CreatedAt string`, `UpdatedAt string`, `Attachments []CommentAttachmentRef`. JSON tags match Tracker exactly (`createdBy`, `createdAt`, `updatedAt`, `longId`, `attachments`).
-- [ ] Implement `Plain() string` for `Comment`: header line `<author>  <createdAt>` via `render.SkipEmpty`; then `<text>` on its own line; then if `len(Attachments) > 0`, a final line `attachments: <id>:<display>, <id>:<display>, ...`. Use `render.SkipEmptyLines` to glue parts so empty pieces don't produce blank lines.
-- [ ] Implement `Row() string` for `Comment`: `<author>  <createdAt>  <first-line-of-text>  [N attached]` where the trailing bracket is omitted when no attachments. Don't truncate text — keep it simple; users can use `--json` if they need structured slicing.
-- [ ] Implement `(c *Client) ListComments(ctx, issueKey string) ([]Comment, error)` using `DoPaginated` against `/v3/issues/{key}/comments?expand=attachments`. The `expand` param is **load-bearing** — without it, the `Attachments` field is silently empty.
-- [ ] Write unit test: single-page response with comments that have attachments — assert decode, `Attachments` populated, `Plain()`/`Row()` strings exact.
-- [ ] Write unit test: comment with no attachments — assert `Plain()` has no `attachments:` line and `Row()` has no `[N attached]` suffix.
-- [ ] Write unit test: assert outgoing request URL contains `expand=attachments` (capture `r.URL.RawQuery` in fixture handler).
-- [ ] Write unit test: paginated response (2 pages via Link header) — assert merged slice length and order.
-- [ ] Write unit test: 404 issue not found — assert `*APIError`.
-- [ ] Run `go test ./internal/tracker/...` — must pass before Task 3.
+- [x] Define `CommentAttachmentRef` struct: `ID string`, `Display string`. JSON tags `id`, `display`. (`self` URL field is ignored.)
+- [x] Define `Comment` struct: `ID int64`, `LongID string`, `Text string`, `CreatedBy Display`, `CreatedAt string`, `UpdatedAt string`, `Attachments []CommentAttachmentRef`.
+- [x] Implement `Plain() string`: header `<author>  <createdAt>`, text body, then `attachments: <id>:<display>, ...` line if any.
+- [x] Implement `Row() string`: `<author>  <createdAt>  <first-line-of-text>  [N attached]` (suffix omitted when no attachments). Multi-line text collapses via `firstLine` helper.
+- [x] Implement `(c *Client) ListComments(ctx, issueKey string) ([]Comment, error)` against `/v3/issues/{key}/comments?expand=attachments` using `DoPaginated`.
+- [x] Test: with-attachments — `Plain()` and `Row()` strings exact.
+- [x] Test: no-attachments — no `attachments:` line in Plain, no `[N attached]` suffix in Row.
+- [x] Test: outgoing query contains `expand=attachments` (asserts on `r.URL.RawQuery`).
+- [x] Test: paginated response via Link header — asserts merge order.
+- [x] Test: 404 — assert `*APIError`.
+- [x] Run `go test ./internal/tracker/...` — passed.
 
 ### Task 3: Attachments list — types + client method + tests
 
