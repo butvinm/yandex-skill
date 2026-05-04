@@ -22,7 +22,7 @@ type fakeYCExecutor struct {
 	called bool
 }
 
-func (f *fakeYCExecutor) runYC(_ context.Context) ([]byte, error) {
+func (f *fakeYCExecutor) runYC(_ context.Context, _ string) ([]byte, error) {
 	f.called = true
 	return f.out, f.err
 }
@@ -36,7 +36,7 @@ func swapYCExec(t *testing.T, fake ycExecutor) {
 
 func TestFetchYCToken_Success(t *testing.T) {
 	swapYCExec(t, &fakeYCExecutor{out: []byte("t1.abc\n")})
-	got, err := fetchYCToken(context.Background())
+	got, err := fetchYCToken(context.Background(), "yc")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -47,7 +47,7 @@ func TestFetchYCToken_Success(t *testing.T) {
 
 func TestFetchYCToken_EmptyOutput(t *testing.T) {
 	swapYCExec(t, &fakeYCExecutor{out: []byte("\n  \n")})
-	_, err := fetchYCToken(context.Background())
+	_, err := fetchYCToken(context.Background(), "yc")
 	if err == nil {
 		t.Fatal("expected error for empty output, got nil")
 	}
@@ -59,7 +59,7 @@ func TestFetchYCToken_EmptyOutput(t *testing.T) {
 func TestFetchYCToken_ExitErrorWithStderr(t *testing.T) {
 	ee := &exec.ExitError{Stderr: []byte("ERROR: not authenticated\n")}
 	swapYCExec(t, &fakeYCExecutor{err: ee})
-	_, err := fetchYCToken(context.Background())
+	_, err := fetchYCToken(context.Background(), "yc")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -70,7 +70,7 @@ func TestFetchYCToken_ExitErrorWithStderr(t *testing.T) {
 
 func TestFetchYCToken_UnknownError(t *testing.T) {
 	swapYCExec(t, &fakeYCExecutor{err: errors.New("exec: \"yc\": executable file not found in $PATH")})
-	_, err := fetchYCToken(context.Background())
+	_, err := fetchYCToken(context.Background(), "yc")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}

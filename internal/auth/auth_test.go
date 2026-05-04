@@ -118,7 +118,7 @@ func TestLoad(t *testing.T) {
 			for _, k := range []string{
 				"YANDEX_TOKEN", "YANDEX_ORG_ID", "YANDEX_CLOUD_ORG_ID",
 				"YANDEX_TRACKER_BASE_URL", "YANDEX_WIKI_BASE_URL",
-				"YANDEX_USE_YC",
+				"YANDEX_YC_PATH",
 			} {
 				t.Setenv(k, "")
 			}
@@ -217,7 +217,7 @@ func clearAuthEnv(t *testing.T) {
 	for _, k := range []string{
 		"YANDEX_TOKEN", "YANDEX_ORG_ID", "YANDEX_CLOUD_ORG_ID",
 		"YANDEX_TRACKER_BASE_URL", "YANDEX_WIKI_BASE_URL",
-		"YANDEX_USE_YC",
+		"YANDEX_YC_PATH",
 	} {
 		t.Setenv(k, "")
 	}
@@ -232,16 +232,16 @@ func TestLoad_YCFallback_OptInDisabled_ReturnsExistingError(t *testing.T) {
 
 	_, err := Load()
 	if err == nil {
-		t.Fatal("expected error when YANDEX_TOKEN unset and YANDEX_USE_YC not set")
+		t.Fatal("expected error when YANDEX_TOKEN unset and YANDEX_YC_PATH not set")
 	}
 	if !strings.Contains(err.Error(), "YANDEX_TOKEN not set; run: export") {
 		t.Errorf("error = %q, want existing manual-export hint", err.Error())
 	}
-	if !strings.Contains(err.Error(), "YANDEX_USE_YC=1") {
-		t.Errorf("error = %q, want hint about YANDEX_USE_YC opt-in", err.Error())
+	if !strings.Contains(err.Error(), "YANDEX_YC_PATH=") {
+		t.Errorf("error = %q, want hint about YANDEX_YC_PATH opt-in", err.Error())
 	}
 	if fake.called {
-		t.Error("yc executor must not be called when YANDEX_USE_YC is unset")
+		t.Error("yc executor must not be called when YANDEX_YC_PATH is unset")
 	}
 }
 
@@ -249,7 +249,7 @@ func TestLoad_YCFallback_OptInSuccess_PopulatesToken(t *testing.T) {
 	clearAuthEnv(t)
 	swapCacheDir(t)
 	t.Setenv("YANDEX_CLOUD_ORG_ID", "cloud123")
-	t.Setenv("YANDEX_USE_YC", "1")
+	t.Setenv("YANDEX_YC_PATH", "yc")
 	swapYCExec(t, &fakeYCExecutor{out: []byte("t1.from-yc\n")})
 
 	c, err := Load()
@@ -268,7 +268,7 @@ func TestLoad_YCFallback_OptInFailure_WrapsError(t *testing.T) {
 	clearAuthEnv(t)
 	swapCacheDir(t)
 	t.Setenv("YANDEX_CLOUD_ORG_ID", "cloud123")
-	t.Setenv("YANDEX_USE_YC", "1")
+	t.Setenv("YANDEX_YC_PATH", "yc")
 	swapYCExec(t, &fakeYCExecutor{err: errors.New("exec: \"yc\": executable file not found in $PATH")})
 
 	_, err := Load()
@@ -287,7 +287,7 @@ func TestLoad_YCFallback_360_NotInvoked(t *testing.T) {
 	clearAuthEnv(t)
 	swapCacheDir(t)
 	t.Setenv("YANDEX_ORG_ID", "y360_456")
-	t.Setenv("YANDEX_USE_YC", "1") // must be ignored on 360
+	t.Setenv("YANDEX_YC_PATH", "yc") // must be ignored on 360
 	fake := &fakeYCExecutor{out: []byte("t1.should-not-be-used")}
 	swapYCExec(t, fake)
 
@@ -308,7 +308,7 @@ func TestLoad_YCFallback_UserTokenWins(t *testing.T) {
 	swapCacheDir(t)
 	t.Setenv("YANDEX_TOKEN", "t1.user-supplied")
 	t.Setenv("YANDEX_CLOUD_ORG_ID", "cloud123")
-	t.Setenv("YANDEX_USE_YC", "1")
+	t.Setenv("YANDEX_YC_PATH", "yc")
 	fake := &fakeYCExecutor{out: []byte("t1.from-yc")}
 	swapYCExec(t, fake)
 
@@ -328,7 +328,7 @@ func TestLoad_YCFallback_UserTokenWins(t *testing.T) {
 // cache-hit tests to assert no shellout occurred.
 type failingExecutor struct{ t *testing.T }
 
-func (f failingExecutor) runYC(_ context.Context) ([]byte, error) {
+func (f failingExecutor) runYC(_ context.Context, _ string) ([]byte, error) {
 	f.t.Fatal("yc executor must not be called when cache is fresh")
 	return nil, nil
 }
@@ -349,7 +349,7 @@ func TestLoad_YCFallback_CacheHit_FreshSkipsShellout(t *testing.T) {
 	}
 
 	t.Setenv("YANDEX_CLOUD_ORG_ID", "cloud123")
-	t.Setenv("YANDEX_USE_YC", "1")
+	t.Setenv("YANDEX_YC_PATH", "yc")
 	swapYCExec(t, failingExecutor{t: t})
 
 	c, err := Load()
@@ -376,7 +376,7 @@ func TestLoad_YCFallback_CacheMiss_ShellsOutAndWritesCache(t *testing.T) {
 	swapNowFn(t, now)
 
 	t.Setenv("YANDEX_CLOUD_ORG_ID", "cloud123")
-	t.Setenv("YANDEX_USE_YC", "1")
+	t.Setenv("YANDEX_YC_PATH", "yc")
 	fake := &fakeYCExecutor{out: []byte("t1.fresh\n")}
 	swapYCExec(t, fake)
 
@@ -418,7 +418,7 @@ func TestLoad_YCFallback_CacheExpired_RefreshesAndOverwrites(t *testing.T) {
 	}
 
 	t.Setenv("YANDEX_CLOUD_ORG_ID", "cloud123")
-	t.Setenv("YANDEX_USE_YC", "1")
+	t.Setenv("YANDEX_YC_PATH", "yc")
 	fake := &fakeYCExecutor{out: []byte("t1.refreshed\n")}
 	swapYCExec(t, fake)
 
@@ -458,7 +458,7 @@ func TestLoad_YCFallback_CustomRefreshPeriod_ShortenedHit(t *testing.T) {
 	}
 
 	t.Setenv("YANDEX_CLOUD_ORG_ID", "cloud123")
-	t.Setenv("YANDEX_USE_YC", "1")
+	t.Setenv("YANDEX_YC_PATH", "yc")
 	t.Setenv("YANDEX_IAM_TOKEN_REFRESH_PERIOD", "1") // 1 hour
 	swapYCExec(t, failingExecutor{t: t})
 
@@ -486,7 +486,7 @@ func TestLoad_YCFallback_MalformedCache_RecoversByRefetch(t *testing.T) {
 	}
 
 	t.Setenv("YANDEX_CLOUD_ORG_ID", "cloud123")
-	t.Setenv("YANDEX_USE_YC", "1")
+	t.Setenv("YANDEX_YC_PATH", "yc")
 	fake := &fakeYCExecutor{out: []byte("t1.recovered\n")}
 	swapYCExec(t, fake)
 
@@ -528,7 +528,7 @@ func TestLoad_YCFallback_UserTokenWins_CacheUntouched(t *testing.T) {
 
 	t.Setenv("YANDEX_TOKEN", "t1.from-env")
 	t.Setenv("YANDEX_CLOUD_ORG_ID", "cloud123")
-	t.Setenv("YANDEX_USE_YC", "1")
+	t.Setenv("YANDEX_YC_PATH", "yc")
 	swapYCExec(t, failingExecutor{t: t})
 
 	c, err := Load()
@@ -569,7 +569,7 @@ func TestLoad_YCFallback_360_LeavesCloudCacheUntouched(t *testing.T) {
 	}
 
 	t.Setenv("YANDEX_ORG_ID", "y360_456")
-	t.Setenv("YANDEX_USE_YC", "1") // ignored on 360
+	t.Setenv("YANDEX_YC_PATH", "yc") // ignored on 360
 	swapYCExec(t, failingExecutor{t: t})
 
 	_, err := Load()
@@ -606,7 +606,7 @@ func TestLoad_YCFallback_CacheWriteFailure_NonFatal(t *testing.T) {
 	t.Cleanup(func() { cacheDirFn = prev })
 
 	t.Setenv("YANDEX_CLOUD_ORG_ID", "cloud123")
-	t.Setenv("YANDEX_USE_YC", "1")
+	t.Setenv("YANDEX_YC_PATH", "yc")
 	fake := &fakeYCExecutor{out: []byte("t1.transient\n")}
 	swapYCExec(t, fake)
 

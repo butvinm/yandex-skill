@@ -13,19 +13,19 @@ import (
 var nowFn = time.Now
 
 type ycExecutor interface {
-	runYC(ctx context.Context) ([]byte, error)
+	runYC(ctx context.Context, path string) ([]byte, error)
 }
 
 type realYCExecutor struct{}
 
-func (realYCExecutor) runYC(ctx context.Context) ([]byte, error) {
-	return exec.CommandContext(ctx, "yc", "iam", "create-token").Output()
+func (realYCExecutor) runYC(ctx context.Context, path string) ([]byte, error) {
+	return exec.CommandContext(ctx, path, "iam", "create-token").Output()
 }
 
 var ycExec ycExecutor = realYCExecutor{}
 
-func fetchYCToken(ctx context.Context) (string, error) {
-	out, err := ycExec.runYC(ctx)
+func fetchYCToken(ctx context.Context, path string) (string, error) {
+	out, err := ycExec.runYC(ctx, path)
 	if err != nil {
 		var ee *exec.ExitError
 		if errors.As(err, &ee) {
@@ -45,7 +45,7 @@ func fetchYCToken(ctx context.Context) (string, error) {
 // loadYCToken returns an IAM token, preferring a fresh on-disk cache and
 // falling back to `yc iam create-token`. Cache I/O failures are logged but
 // non-fatal: we always return a usable token if `yc` succeeds.
-func loadYCToken(ctx context.Context) (string, error) {
+func loadYCToken(ctx context.Context, path string) (string, error) {
 	cachePath, pathErr := cacheFilePath()
 	if pathErr == nil {
 		if ct, err := readCachedToken(cachePath); err == nil {
@@ -56,7 +56,7 @@ func loadYCToken(ctx context.Context) (string, error) {
 		}
 	}
 
-	tok, err := fetchYCToken(ctx)
+	tok, err := fetchYCToken(ctx, path)
 	if err != nil {
 		return "", err
 	}
