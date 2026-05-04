@@ -11,14 +11,14 @@ This skill exposes 12 commands via the `yandex-cli` binary (must be on PATH).
 
 These environment variables must be set in the user's shell:
 
-- `YANDEX_TOKEN` — IAM token (Yandex Cloud) or OAuth token (Yandex 360). Optional on Cloud when `YANDEX_USE_YC=1` (see below).
+- `YANDEX_TOKEN` — IAM token (Yandex Cloud) or OAuth token (Yandex 360). Optional on Cloud when `YANDEX_YC_PATH` is set (see below).
 - `YANDEX_CLOUD_ORG_ID` — set this for a Yandex Cloud organization; OR
 - `YANDEX_ORG_ID` — set this for Yandex 360 for Business
 
 Organization type is inferred from which org-id var is set. Set exactly one.
 See [Yandex Tracker → API access](https://yandex.ru/support/tracker/en/api-ref/access) for the underlying auth model.
 
-Optional on Cloud: `YANDEX_USE_YC=1` makes the binary mint an IAM token via `yc iam create-token` when `YANDEX_TOKEN` is unset. The token is cached on disk and refreshed every `YANDEX_IAM_TOKEN_REFRESH_PERIOD` hours (default 10, max 12). Requires the `yc` CLI on PATH and an initialized profile. Has no effect on 360 (yc cannot mint OAuth tokens).
+Optional on Cloud: set `YANDEX_YC_PATH` to the path of your `yc` binary (e.g. `yc` for PATH lookup, or an absolute path) to make the binary mint an IAM token via `<yc> iam create-token` when `YANDEX_TOKEN` is unset. The token is cached on disk and refreshed every `YANDEX_IAM_TOKEN_REFRESH_PERIOD` hours (default 10, max 12). Requires an initialized `yc` profile. Has no effect on 360 (yc cannot mint OAuth tokens).
 
 If any are missing, the CLI exits non-zero with a tenancy-specific hint in the error message. Direct the user to the project README for setup; do NOT try to set these yourself.
 
