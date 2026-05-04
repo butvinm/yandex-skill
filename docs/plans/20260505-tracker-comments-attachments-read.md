@@ -113,12 +113,15 @@ The shape mirrors the wiki side: `wiki attachments list/download` already exists
 - Create: `internal/tracker/attachments.go`
 - Create: `internal/tracker/attachments_test.go`
 
-- [ ] Define `Attachment` struct: `ID string`, `Name string`, `Size int64`, `Mimetype string`, `Content string` (download URL), `CreatedBy Display`, `CreatedAt string`. JSON tags match Tracker exactly.
-- [ ] Implement `Plain() string` and `Row() string` via `render.SkipEmpty(ID, Name, Mimetype, humanSize(Size), CreatedAt, Content)` — leading `ID` so users can copy it for `tracker attachments download`; trailing `Content` so `awk '{print $NF}'` extracts the URL (mirrors wiki attachments).
-- [ ] Implement `(c *Client) ListAttachments(ctx, issueKey string) ([]Attachment, error)` via `DoPaginated`. Note: the listing returns both issue-level and comment-level attachments — no filter or flag needed.
-- [ ] Write unit test: single-page response — assert decode, `Plain()`/`Row()`.
-- [ ] Write unit test: paginated response — assert merge.
-- [ ] Run `go test ./internal/tracker/...` — must pass before Task 4.
+- [x] Define `Attachment` struct (id, name, size, mimetype, content, createdBy, createdAt).
+- [x] Implement `Plain()` / `Row()` via `render.SkipEmpty(ID, Name, Mimetype, humanSize(Size), CreatedAt, Content)`.
+- [x] Implement `humanSize` helper (B/KiB/MiB/GiB; empty for ≤0).
+- [x] Implement `ListAttachments` against `/v3/issues/{key}/attachments` via `DoPaginated`.
+- [x] Test: single-page decode + Plain() string exact.
+- [x] Test: humanSize boundary cases.
+- [x] Test: paginated via Link header.
+- [x] Test: 404.
+- [x] Run `go test ./internal/tracker/...` — passed.
 
 ### Task 4: Attachment download — client method + tests
 
