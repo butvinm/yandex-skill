@@ -81,11 +81,11 @@ The shape mirrors the wiki side: `wiki attachments list/download` already exists
 - Modify: `internal/tracker/client.go`
 - Modify: `internal/tracker/client_test.go`
 
-- [ ] Add `DoRaw(ctx, method, url string, body any) (*http.Response, error)` returning the open response so callers can stream `resp.Body`. Caller closes the body. Mirror the signature and error handling of `wiki.Client.DoRaw`.
-- [ ] On HTTP ≥400, drain and close the body and return `*APIError` (consistent with `Do`).
-- [ ] Write unit test: 200 response — assert body is readable and not pre-closed.
-- [ ] Write unit test: 404 response — assert `*APIError` with `Status: 404`, body closed.
-- [ ] Run `go test ./internal/tracker/... && go vet ./...` — must pass before Task 2.
+- [x] Add `DoRaw(ctx, method, url, contentType string, body io.Reader) (*http.Response, error)` returning the open response so callers can stream `resp.Body`. Caller closes the body. Signature matches `wiki.Client.DoRaw` exactly.
+- [x] On HTTP ≥400, drain and close the body and return `*APIError` (consistent with `Do`).
+- [x] Write unit test: 200 response — assert body is readable and not pre-closed.
+- [x] Write unit test: 404 response — assert `*APIError` with `Status: 404`, response returned.
+- [x] Run `go test ./internal/tracker/... && go vet ./...` — passed.
 
 ### Task 2: Comments list — types + client method + tests
 

@@ -98,6 +98,60 @@ func TestClient_Do_4xx_APIError(t *testing.T) {
 	}
 }
 
+func TestClient_DoRaw_Success_BodyStreamableAndOpen(t *testing.T) {
+	payload := []byte("hello-binary-bytes")
+	c, _ := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("method = %s", r.Method)
+		}
+		if got := r.Header.Get("Authorization"); got != "Bearer tok" {
+			t.Errorf("Authorization = %q", got)
+		}
+		w.Header().Set("Content-Type", "application/octet-stream")
+		_, _ = w.Write(payload)
+	})
+
+	resp, err := c.DoRaw(context.Background(), http.MethodGet, "/v3/issues/FOO-1/attachments/1/x.bin", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Errorf("status = %d", resp.StatusCode)
+	}
+	got, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read body: %v", err)
+	}
+	if string(got) != string(payload) {
+		t.Errorf("body = %q, want %q", got, payload)
+	}
+}
+
+func TestClient_DoRaw_4xx_APIError_BodyClosed(t *testing.T) {
+	c, _ := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(404)
+		_, _ = io.WriteString(w, `{"errorMessages":["not found"]}`)
+	})
+	resp, err := c.DoRaw(context.Background(), http.MethodGet, "/v3/issues/FOO-1/attachments/1/x.bin", "", nil)
+	if err == nil {
+		t.Fatal("want error")
+	}
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatalf("err type = %T", err)
+	}
+	if apiErr.Status != 404 {
+		t.Errorf("status = %d", apiErr.Status)
+	}
+	if apiErr.Message != "not found" {
+		t.Errorf("message = %q", apiErr.Message)
+	}
+	if resp == nil {
+		t.Fatal("resp nil even though error returned with response")
+	}
+}
+
 func TestClient_DoPaginated_FollowsLink(t *testing.T) {
 	pages := 0
 	mux := http.NewServeMux()
