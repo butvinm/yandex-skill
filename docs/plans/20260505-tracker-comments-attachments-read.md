@@ -143,15 +143,15 @@ The shape mirrors the wiki side: `wiki attachments list/download` already exists
 - Modify: `internal/cli/cli.go`
 - Modify: `internal/cli/e2e_test.go`
 
-- [ ] Add `Comments TrackerCommentsCmd \`cmd:""\``and`Attachments TrackerAttachmentsCmd \`cmd:""\``fields to`TrackerCmd`.
-- [ ] Define `TrackerCommentsCmd` with subcommand `List ListTrackerCommentsCmd \`cmd:""\``. `ListTrackerCommentsCmd { Key string \`arg:"" help:"Issue key, e.g. PROJ-1"\` }`with a`Run(g Globals) error`that follows the standard pipeline and calls`render.Many`.
-- [ ] Define `TrackerAttachmentsCmd` with subcommands `List` and `Download`. `Download` takes positional `Key` and `ID`, optional `--out <path>` (default stdout). Follow wiki download's stdout-vs-file split.
-- [ ] Add e2e test: `tracker comments list FOO-1` plain output — pin exact string.
-- [ ] Add e2e test: `tracker comments list FOO-1 --json` — assert JSON decodes back to the expected slice.
-- [ ] Add e2e test: `tracker attachments list FOO-1` plain + JSON — same pattern.
-- [ ] Add e2e test: `tracker attachments download FOO-1 <id> --out <tmpfile>` — assert file contents match the fixture bytes.
-- [ ] Add e2e test: `tracker attachments download FOO-1 <bad-id>` — assert non-zero exit, error printed to stderr.
-- [ ] Run `go test ./... && go vet ./...` — must pass before Task 6.
+- [x] Add `Comments` and `Attachments` fields to `TrackerCmd`.
+- [x] Define `TrackerCommentsCmd { List ListTrackerCommentsCmd }` and `ListTrackerCommentsCmd { Key string \`arg\` }`.
+- [x] Define `TrackerAttachmentsCmd { List, Download }` with `DownloadTrackerAttachmentCmd { Key, ID string \`arg\`, Output string \`name:"output" default:"-"\` }`.
+- [x] e2e: `tracker comments list FOO-1` plain (asserts `expand=attachments` in query and exact stdout).
+- [x] e2e: `tracker comments list FOO-1 --json` (decodes back to slice).
+- [x] e2e: `tracker attachments list FOO-1` plain (exact stdout including `humanSize` formatting).
+- [x] e2e: `tracker attachments download FOO-1 <id> --output <tmpfile>` (file bytes match payload).
+- [x] e2e: `tracker attachments download FOO-1 <bad-id>` (non-zero exit, stderr mentions "attachment not found" and 404).
+- [x] Run `go test ./... && go vet ./...` — passed.
 
 ### Task 6: Verify acceptance criteria
 
