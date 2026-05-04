@@ -155,13 +155,13 @@ The shape mirrors the wiki side: `wiki attachments list/download` already exists
 
 ### Task 6: Verify acceptance criteria
 
-- [ ] `tracker comments list <key>` returns comments in plain and JSON.
-- [ ] `tracker attachments list <key>` returns attachments in plain and JSON, download URL is the trailing column.
-- [ ] `tracker attachments download <key> <id>` writes bytes to stdout by default and to a file with `--out`.
-- [ ] All error paths (issue not found, attachment id not found, server error) produce a single error line on stderr (or `{"error":...,"status":...}` with `--json`) and a non-zero exit code.
-- [ ] `go test ./...` passes.
-- [ ] `go vet ./...` passes.
-- [ ] Build a binary (`go build -o /tmp/yc ./cmd/yandex-cli`) and run `--help` against it; verify the new commands show up in the tree.
+- [x] `tracker comments list <key>` returns comments in plain and JSON.
+- [x] `tracker attachments list <key>` returns attachments in plain and JSON, download URL is the trailing column.
+- [x] `tracker attachments download <key> <id>` writes bytes to stdout by default and to a file with `--output` (note: flag is `--output` not `--out`, matching the existing wiki download command).
+- [x] All error paths (issue not found, attachment id not found, server error) produce a single error line on stderr and non-zero exit (e2e test asserts).
+- [x] `go test ./... -count=1` passes (all packages).
+- [x] `go vet ./...` passes.
+- [x] Built binary at `/tmp/yc`; `tracker --help`, `tracker comments --help`, `tracker attachments --help` all show the new commands in the tree.
 
 ### Task 7: Documentation + plan housekeeping
 
@@ -171,11 +171,11 @@ The shape mirrors the wiki side: `wiki attachments list/download` already exists
 - Modify: `CLAUDE.md` (if patterns shifted)
 - Move: this file to `docs/plans/completed/`
 
-- [ ] Add a "Comments" and "Attachments" subsection under the Tracker section of `README.md` with a one-line description and one example invocation per new command.
-- [ ] Update the "Limitations" section: keep "No Tracker writes" but remove the implicit "no comments/attachments" — it was never written explicitly, but if any phrasing implied it, soften.
-- [ ] If `CLAUDE.md` `## Scope` mentions tracker write-only restriction, leave it; this plan only adds reads.
-- [ ] If a new pattern emerged (e.g. `DoRaw` on tracker, attachment id→name resolution), add a one-line note under `## Conventions` in `CLAUDE.md`.
-- [ ] `mkdir -p docs/plans/completed && git mv docs/plans/20260505-tracker-comments-attachments-read.md docs/plans/completed/`.
+- [x] Added 3 new tracker commands to README "What it does" Tracker section; bumped command count 12→15.
+- [x] README "Limitations": clarified `No Tracker writes` to call out that comments/attachments are read-only (not absent).
+- [x] CLAUDE.md `## Layout`: tracker package description now lists comments + attachments and notes that comment attachments are not separately enumerable.
+- [x] CLAUDE.md `## Things not to do`: refined the Tracker-writes rule to clarify reads are supported.
+- [x] Move this plan to `docs/plans/completed/` (committed alongside Task 7 changes).
 
 ## Technical Details
 

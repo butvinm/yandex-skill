@@ -34,7 +34,7 @@ go install -ldflags "-X main.version=$(git describe --tags --always)" ./cmd/yand
 - `cmd/yandex-cli/main.go` — thin entry, calls `cli.Main(version)`
 - `internal/cli/` — kong CLI definitions, command Run methods, e2e tests
 - `internal/auth/` — env-var config, tenancy detection, header builders
-- `internal/tracker/` — Tracker REST client + types (issues, queues)
+- `internal/tracker/` — Tracker REST client + types (issues, queues, comments, attachments). `client.go` has `Do` (JSON), `DoRaw` (binary streams), and `DoPaginated` (Link `rel=next`). `attachments.go` covers list+download; comment attachments are not separately enumerable — the issue-level `/attachments` listing returns them already.
 - `internal/wiki/` — Wiki REST client + types (pages, attachments). `client.go` has both `Do` (JSON) and `DoRaw` (binary streams). `attachments.go` exposes the public ops; `upload_sessions.go` is the private 3-step helper used only by `UploadAttachment`.
 - `internal/render/` — Plain/JSON output, `Plainer`/`Rower` interfaces
 - `plugins/yandex/` — Claude Code plugin manifest and skill files
@@ -65,7 +65,7 @@ When adding a command, add: (1) a unit test for the client method, (2) an e2e te
 
 Limitations are stated in the README. Don't silently expand:
 
-- No Tracker writes (no comments, transitions, edits)
+- No Tracker writes (no comment posting, no transitions, no edits). Reads cover issues, queues, comments (with attachment refs), and attachments (issue-level + comment-level, unified by the API).
 - Wiki attachment uploads are single-part only (≤16 MiB); no chunked or resumable upload path
 - No pagination flags (clients fetch all pages internally via Link `rel=next`)
 - Wiki page list is `--parent`-only (no free-text search; the API doesn't expose one)
