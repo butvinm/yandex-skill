@@ -41,8 +41,19 @@ type CLI struct {
 }
 
 type TrackerCmd struct {
-	Issues TrackerIssuesCmd `cmd:"" help:"issues"`
-	Queues TrackerQueuesCmd `cmd:"" help:"queues"`
+	Issues      TrackerIssuesCmd      `cmd:"" help:"issues"`
+	Queues      TrackerQueuesCmd      `cmd:"" help:"queues"`
+	Comments    TrackerCommentsCmd    `cmd:"" help:"issue comments"`
+	Attachments TrackerAttachmentsCmd `cmd:"" help:"issue attachments (issue-level and comment-level, unified)"`
+}
+
+type TrackerCommentsCmd struct {
+	List ListTrackerCommentsCmd `cmd:"" help:"list comments on an issue"`
+}
+
+type TrackerAttachmentsCmd struct {
+	List     ListTrackerAttachmentsCmd    `cmd:"" help:"list attachments on an issue"`
+	Download DownloadTrackerAttachmentCmd `cmd:"" help:"download an attachment by issue key + id"`
 }
 
 type TrackerIssuesCmd struct {
@@ -144,6 +155,65 @@ func (c *ListQueuesCmd) Run(g *Globals) error {
 		return err
 	}
 	return render.Many(g.Stdout, g.Format(), queues)
+}
+
+// --- Tracker comments + attachments commands ---
+
+type ListTrackerCommentsCmd struct {
+	Key string `arg:"" help:"issue key (e.g. FOO-1)"`
+}
+
+func (c *ListTrackerCommentsCmd) Run(g *Globals) error {
+	cfg, err := auth.Load()
+	if err != nil {
+		return err
+	}
+	comments, err := tracker.New(cfg).ListComments(g.Ctx, c.Key)
+	if err != nil {
+		return err
+	}
+	return render.Many(g.Stdout, g.Format(), comments)
+}
+
+type ListTrackerAttachmentsCmd struct {
+	Key string `arg:"" help:"issue key (e.g. FOO-1)"`
+}
+
+func (c *ListTrackerAttachmentsCmd) Run(g *Globals) error {
+	cfg, err := auth.Load()
+	if err != nil {
+		return err
+	}
+	atts, err := tracker.New(cfg).ListAttachments(g.Ctx, c.Key)
+	if err != nil {
+		return err
+	}
+	return render.Many(g.Stdout, g.Format(), atts)
+}
+
+type DownloadTrackerAttachmentCmd struct {
+	Key    string `arg:"" help:"issue key (e.g. FOO-1)"`
+	ID     string `arg:"" help:"attachment id (from 'tracker attachments list')"`
+	Output string `name:"output" default:"-" help:"output path; '-' for stdout"`
+}
+
+func (c *DownloadTrackerAttachmentCmd) Run(g *Globals) error {
+	cfg, err := auth.Load()
+	if err != nil {
+		return err
+	}
+	var w io.Writer
+	if c.Output == "-" {
+		w = g.Stdout
+	} else {
+		f, err := os.Create(c.Output)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		w = f
+	}
+	return tracker.New(cfg).DownloadAttachment(g.Ctx, c.Key, c.ID, w)
 }
 
 // --- Wiki commands ---

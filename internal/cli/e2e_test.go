@@ -91,6 +91,144 @@ func TestE2E_TrackerIssuesList_Plain(t *testing.T) {
 	}
 }
 
+func TestE2E_TrackerCommentsList_Plain(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v3/issues/FOO-1/comments" {
+			t.Errorf("path = %s", r.URL.Path)
+		}
+		if !strings.Contains(r.URL.RawQuery, "expand=attachments") {
+			t.Errorf("query missing expand=attachments: %s", r.URL.RawQuery)
+		}
+		_, _ = io.WriteString(w, `[
+			{"id":1,"text":"see file","createdBy":{"display":"ivan"},"createdAt":"T1",
+			 "attachments":[{"id":"67890","display":"x.png"}]},
+			{"id":2,"text":"ok","createdBy":{"display":"petr"},"createdAt":"T2"}
+		]`)
+	}))
+	defer srv.Close()
+
+	stdout, stderr, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":            "tok",
+		"YANDEX_CLOUD_ORG_ID":     "org",
+		"YANDEX_TRACKER_BASE_URL": srv.URL,
+	}, "", "tracker", "comments", "list", "FOO-1")
+
+	if exit != 0 {
+		t.Fatalf("exit=%d stderr=%s", exit, stderr)
+	}
+	want := "ivan  T1  see file  [1 attached]\npetr  T2  ok\n"
+	if stdout != want {
+		t.Errorf("stdout = %q\nwant      %q", stdout, want)
+	}
+}
+
+func TestE2E_TrackerCommentsList_JSON(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `[{"id":1,"text":"hi","createdBy":{"display":"ivan"}}]`)
+	}))
+	defer srv.Close()
+
+	stdout, _, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":            "tok",
+		"YANDEX_CLOUD_ORG_ID":     "org",
+		"YANDEX_TRACKER_BASE_URL": srv.URL,
+	}, "", "--json", "tracker", "comments", "list", "FOO-1")
+
+	if exit != 0 {
+		t.Fatalf("exit = %d", exit)
+	}
+	var got []map[string]any
+	if err := json.Unmarshal([]byte(stdout), &got); err != nil {
+		t.Fatalf("decode: %v\nstdout=%s", err, stdout)
+	}
+	if len(got) != 1 || got[0]["text"] != "hi" {
+		t.Errorf("decoded = %v", got)
+	}
+}
+
+func TestE2E_TrackerAttachmentsList_Plain(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v3/issues/FOO-1/attachments" {
+			t.Errorf("path = %s", r.URL.Path)
+		}
+		_, _ = io.WriteString(w, `[
+			{"id":"67890","name":"x.png","size":14823,"mimetype":"image/png","content":"https://x/a","createdAt":"T1"},
+			{"id":"67891","name":"log.txt","size":2048,"mimetype":"text/plain","content":"https://x/b","createdAt":"T2"}
+		]`)
+	}))
+	defer srv.Close()
+
+	stdout, stderr, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":            "tok",
+		"YANDEX_CLOUD_ORG_ID":     "org",
+		"YANDEX_TRACKER_BASE_URL": srv.URL,
+	}, "", "tracker", "attachments", "list", "FOO-1")
+
+	if exit != 0 {
+		t.Fatalf("exit=%d stderr=%s", exit, stderr)
+	}
+	want := "67890  x.png  image/png  14.5 KiB  T1  https://x/a\n67891  log.txt  text/plain  2.0 KiB  T2  https://x/b\n"
+	if stdout != want {
+		t.Errorf("stdout = %q\nwant      %q", stdout, want)
+	}
+}
+
+func TestE2E_TrackerAttachmentsDownload_ToFile(t *testing.T) {
+	payload := []byte("\x89PNG\r\n\x1a\nbinary")
+	mux := http.NewServeMux()
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	mux.HandleFunc("/v3/issues/FOO-1/attachments", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `[{"id":"67890","name":"x.png","size":13,"mimetype":"image/png","content":"u"}]`)
+	})
+	mux.HandleFunc("/v3/issues/FOO-1/attachments/67890/x.png", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/png")
+		_, _ = w.Write(payload)
+	})
+
+	dir := t.TempDir()
+	out := filepath.Join(dir, "got.png")
+	stdout, stderr, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":            "tok",
+		"YANDEX_CLOUD_ORG_ID":     "org",
+		"YANDEX_TRACKER_BASE_URL": srv.URL,
+	}, "", "tracker", "attachments", "download", "FOO-1", "67890", "--output", out)
+
+	if exit != 0 {
+		t.Fatalf("exit=%d stderr=%s stdout=%s", exit, stderr, stdout)
+	}
+	got, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, payload) {
+		t.Errorf("file bytes = %x, want %x", got, payload)
+	}
+}
+
+func TestE2E_TrackerAttachmentsDownload_BadID(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `[{"id":"1","name":"a.png"}]`)
+	}))
+	defer srv.Close()
+
+	_, stderr, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":            "tok",
+		"YANDEX_CLOUD_ORG_ID":     "org",
+		"YANDEX_TRACKER_BASE_URL": srv.URL,
+	}, "", "tracker", "attachments", "download", "FOO-1", "999")
+
+	if exit == 0 {
+		t.Fatal("expected non-zero exit")
+	}
+	if !strings.Contains(stderr, "attachment not found") {
+		t.Errorf("stderr should mention 'attachment not found': %q", stderr)
+	}
+	if !strings.Contains(stderr, "404") {
+		t.Errorf("stderr should mention status 404: %q", stderr)
+	}
+}
+
 func TestE2E_WikiPagesGet_Plain(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("fields") != "content" {

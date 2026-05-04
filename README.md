@@ -4,7 +4,7 @@ A Claude Code skill for **Yandex Tracker** and **Yandex Wiki**, backed by a smal
 
 ## What it does
 
-12 commands across two products.
+15 commands across two products.
 
 **Tracker**
 
@@ -12,6 +12,9 @@ A Claude Code skill for **Yandex Tracker** and **Yandex Wiki**, backed by a smal
 - `yandex-cli tracker issues get FOO-1` — get one issue
 - `yandex-cli tracker queues list` — list queues
 - `yandex-cli tracker queues get FOO` — get one queue
+- `yandex-cli tracker comments list FOO-1` — list comments on an issue (with attachment refs)
+- `yandex-cli tracker attachments list FOO-1` — list attachments (issue-level and comment-level, unified)
+- `yandex-cli tracker attachments download FOO-1 <id> [--output PATH|-]` — stream binary
 
 **Wiki**
 
@@ -122,7 +125,7 @@ Attachments not referenced in the markdown body are still downloaded by `get` (s
 
 ## Limitations
 
-- **No Tracker writes** (no comments, no transitions, no edits)
+- **No Tracker writes** — no comment posting, no transitions, no edits. Comments and attachments are read-only.
 - **Wiki attachment uploads are single-part only** — files larger than 16 MiB are rejected. The Yandex Wiki upload-sessions API supports chunked uploads up to ~160 GB; we ship single-part to keep the client lean.
 - **No pagination flags** — clients fetch all pages internally
 - **Wiki has no free-text search** — `wiki pages list` accepts `--parent` only
