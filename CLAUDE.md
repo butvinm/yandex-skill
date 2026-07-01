@@ -8,6 +8,8 @@ A Go CLI (`yandex-cli`) that wraps Yandex Tracker (read) and Yandex Wiki (read+w
 
 Naming gotcha: the module is `github.com/butvinm/yandex-skill`, the binary is `yandex-cli`, the plugin is `yandex`, the marketplace entry is `butvinm-yandex-skill`. All four are intentional — don't "fix" mismatches.
 
+Plugin versioning: `plugins/yandex/.claude-plugin/plugin.json` intentionally omits the `version` field. When it's absent Claude Code uses the git commit SHA as the plugin version, so every commit is picked up as an update. Setting an explicit `version` makes updates equality-gated on that string (bump-or-stale) — don't re-add it unless you deliberately want manual release versioning.
+
 ## Build, test, run
 
 ```sh
