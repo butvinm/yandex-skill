@@ -8,7 +8,13 @@ A Go CLI (`yandex-cli`) that wraps Yandex Tracker (read) and Yandex Wiki (read+w
 
 Naming gotcha: the module is `github.com/butvinm/yandex-skill`, the binary is `yandex-cli`, the plugin is `yandex`, the marketplace entry is `butvinm-yandex-skill`. All four are intentional — don't "fix" mismatches.
 
-Plugin versioning: `plugins/yandex/.claude-plugin/plugin.json` intentionally omits the `version` field. When it's absent Claude Code uses the git commit SHA as the plugin version, so every commit is picked up as an update. Setting an explicit `version` makes updates equality-gated on that string (bump-or-stale) — don't re-add it unless you deliberately want manual release versioning.
+Versioning: the project follows semver, and one version drives two surfaces. The `version` field in `plugins/yandex/.claude-plugin/plugin.json` is the plugin version (Claude Code equality-gates plugin updates on it — a commit ships to installed users only when this string is bumped; SHA-based auto-update was dropped in 1.0.0). The matching `vX.Y.Z` git tag is the binary version (`go install @latest` picks it up via `runtime/debug.ReadBuildInfo`). Keep the two in lockstep.
+
+Releasing: bump `version` in `plugin.json`, refresh the single line in the README "Recent updates" section, then after the release commit lands on `master` cut the tag and publish the notes: `git tag vX.Y.Z && git push origin vX.Y.Z && gh release create vX.Y.Z --notes "..."`. Per-version history lives in GitHub Releases, not an in-tree changelog (a plugin/`go install` consumer never sees repo files anyway); the README line is the only in-tree teaser. Bump rules:
+
+- MAJOR: user must act after updating (a command/flag/env-var removed or renamed, output format broken, install method changed).
+- MINOR: backward-compatible feature (new command, new flag, notable new capability).
+- PATCH: backward-compatible fix (bugfix, doc-only or skill-only tweak).
 
 ## Build, test, run
 

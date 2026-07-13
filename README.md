@@ -2,6 +2,12 @@
 
 A Claude Code skill for **Yandex Tracker** and **Yandex Wiki**, backed by a small `yandex-cli` Go binary.
 
+## Recent updates
+
+Full history in [GitHub Releases](https://github.com/butvinm/yandex-skill/releases).
+
+- [2026/07/13] **v1.0.0**: first versioned release. 15 Tracker/Wiki commands, human-facing wiki page URLs, and markdown round-trip.
+
 ## What it does
 
 15 commands across two products.
