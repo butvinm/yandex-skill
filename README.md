@@ -2,6 +2,12 @@
 
 A Claude Code skill for **Yandex Tracker** and **Yandex Wiki**, backed by a small `yandex-cli` Go binary.
 
+## Recent updates
+
+Full history in [GitHub Releases](https://github.com/butvinm/yandex-skill/releases).
+
+- [2026/07/13] **v1.0.0**: first versioned release. 15 Tracker/Wiki commands, human-facing wiki page URLs, and markdown round-trip.
+
 ## What it does
 
 15 commands across two products.
@@ -18,8 +24,8 @@ A Claude Code skill for **Yandex Tracker** and **Yandex Wiki**, backed by a smal
 
 **Wiki**
 
-- `yandex-cli wiki pages list --parent <slug>` — list descendants (slug + title) of a page
-- `yandex-cli wiki pages get <slug> [--output PATH|-] [--attachments-dir DIR]` — get page content (and optionally sync attachments + rewrite links for local round-trip)
+- `yandex-cli wiki pages list --parent <slug>` — list descendants (full page URL + title) of a page
+- `yandex-cli wiki pages get <slug-or-url> [--output PATH|-] [--attachments-dir DIR]` — get page content, prefixed with the page's full URL (and optionally sync attachments + rewrite links for local round-trip)
 - `yandex-cli wiki pages create --slug ... --title ... --body[-file] ... [--attachments-dir DIR]` — create a page (uploads any attachments referenced as `<DIR>/<file>` first)
 - `yandex-cli wiki pages update <slug> --body[-file] ... [--attachments-dir DIR]` — update a page (same attachment sync as create)
 - `yandex-cli wiki attachments list <slug>` — list a page's attachments
@@ -80,7 +86,8 @@ From Claude Code, ask: _"list my Yandex Tracker queues"_ — Claude should auto-
 | `YANDEX_YC_PATH`                  | no                                     | Path to `yc` executable (Cloud only). When set, fetches an IAM token via `<yc> iam create-token` if `YANDEX_TOKEN` is unset; result is cached at `os.UserCacheDir()/yandex-cli/iam-token.json`. Use `yc` for `PATH` lookup or an absolute path. |
 | `YANDEX_IAM_TOKEN_REFRESH_PERIOD` | no                                     | Cache lifetime in hours (default `10`, clamped to `12`). Only consulted when `YANDEX_YC_PATH` is set. Invalid values silently fall back to default.                                                                                             |
 | `YANDEX_TRACKER_BASE_URL`         | no                                     | Default: `https://api.tracker.yandex.net`                                                                                                                                                                                                       |
-| `YANDEX_WIKI_BASE_URL`            | no                                     | Default: `https://api.wiki.yandex.net`                                                                                                                                                                                                          |
+| `YANDEX_WIKI_BASE_URL`            | no                                     | Default: `https://api.wiki.yandex.net` (API host)                                                                                                                                                                                               |
+| `YANDEX_WIKI_PUBLIC_URL`          | no                                     | Default: `https://wiki.yandex.ru` (human-facing host used to build the page URLs shown in output)                                                                                                                                               |
 
 ## Output
 

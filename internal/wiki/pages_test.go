@@ -17,7 +17,7 @@ import (
 func newWiki(t *testing.T, h http.HandlerFunc) (*Client, *httptest.Server) {
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
-	return New(auth.Config{Token: "tok", OrgID: "org", WikiBaseURL: srv.URL}), srv
+	return New(auth.Config{Token: "tok", OrgID: "org", WikiBaseURL: srv.URL, WikiPublicURL: "https://wiki.test"}), srv
 }
 
 func TestPage_Plain(t *testing.T) {
@@ -44,8 +44,8 @@ func TestPageRef_Row(t *testing.T) {
 		in   PageRef
 		want string
 	}{
-		{"slug only when title fetch failed", PageRef{ID: 1, Slug: "team/notes"}, "team/notes"},
-		{"slug + title", PageRef{ID: 1, Slug: "team/notes", Title: "Notes"}, "team/notes  Notes"},
+		{"url only when title fetch failed", PageRef{ID: 1, Slug: "team/notes", URL: "https://wiki.test/team/notes"}, "https://wiki.test/team/notes"},
+		{"url + title", PageRef{ID: 1, Slug: "team/notes", URL: "https://wiki.test/team/notes", Title: "Notes"}, "https://wiki.test/team/notes  Notes"},
 	}
 	for _, tc := range cases {
 		if got := tc.in.Row(); got != tc.want {
@@ -75,6 +75,31 @@ func TestGetPage_RequestsFieldsContent(t *testing.T) {
 	}
 	if got.ID != 42 || got.Title != "Notes" || got.Content != "hello" || got.Attributes.ModifiedAt != "2026-04-29" {
 		t.Errorf("got = %+v", got)
+	}
+}
+
+func TestGetPage_SetsPublicURL(t *testing.T) {
+	c, _ := newWiki(t, func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `{"id":42,"slug":"team/notes","title":"Notes","content":"hi"}`)
+	})
+	got, err := c.GetPage(context.Background(), "team/notes")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.URL != "https://wiki.test/team/notes" {
+		t.Errorf("URL = %q", got.URL)
+	}
+}
+
+func TestGetPage_AcceptsPublicURLAsSlug(t *testing.T) {
+	c, _ := newWiki(t, func(w http.ResponseWriter, r *http.Request) {
+		if slug := r.URL.Query().Get("slug"); slug != "team/notes" {
+			t.Errorf("slug = %q; a full page URL must be normalized to a bare slug", slug)
+		}
+		_, _ = io.WriteString(w, `{"id":42,"slug":"team/notes","title":"Notes","content":"hi"}`)
+	})
+	if _, err := c.GetPage(context.Background(), "https://wiki.test/team/notes"); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -164,8 +189,8 @@ func TestListPages_PaginatesAndEnrichesTitles(t *testing.T) {
 		t.Fatalf("got = %+v", got)
 	}
 	want := []PageRef{
-		{ID: 1, Slug: "team/a", Title: "Alpha"},
-		{ID: 2, Slug: "team/b", Title: "Beta"},
+		{ID: 1, Slug: "team/a", URL: "https://wiki.test/team/a", Title: "Alpha"},
+		{ID: 2, Slug: "team/b", URL: "https://wiki.test/team/b", Title: "Beta"},
 	}
 	for i, w := range want {
 		if got[i] != w {

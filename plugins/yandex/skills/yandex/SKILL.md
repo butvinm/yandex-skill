@@ -34,8 +34,8 @@ Tracker (read only):
 
 Wiki pages (read + write):
 
-- `yandex-cli wiki pages list --parent <slug>` — list child pages (slug + title) of a parent
-- `yandex-cli wiki pages get <slug> [--output <path|->] [--attachments-dir <dir>]` — fetch a page; with `--output`, write raw content to file (no title prefix); with `--attachments-dir`, also download attachments and rewrite in-page URLs to local relative paths
+- `yandex-cli wiki pages list --parent <slug>` — list child pages (full page URL + title) of a parent
+- `yandex-cli wiki pages get <slug-or-url> [--output <path|->] [--attachments-dir <dir>]` — fetch a page; the first plain-output line is the page's full URL; with `--output`, write raw content to file (no URL/title prefix); with `--attachments-dir`, also download attachments and rewrite in-page URLs to local relative paths
 - `yandex-cli wiki pages create --slug <new/path> --title <s> --body[-file] <s|path|-> [--attachments-dir <dir>]` — create a page; with `--attachments-dir`, upload local files referenced as `<dir>/<X>` and rewrite URLs to server form
 - `yandex-cli wiki pages update <slug> --body[-file] <s|path|-> [--attachments-dir <dir>]` — replace page body; same `--attachments-dir` semantics as create
 
@@ -51,6 +51,8 @@ Body input: `--body "inline"` or `--body-file path/to/draft.md` or `--body-file 
 ## Output format
 
 Plain text by default — single-block format with blank-line separators that's easy to read in chat. Pass `--json` (after the binary, before the subcommand: `yandex-cli --json tracker ...`) when you need to parse the response.
+
+Wiki page reads and writes surface the page's **full URL** (`https://wiki.yandex.ru/<slug>` by default; override with `YANDEX_WIKI_PUBLIC_URL`): `pages list` rows lead with it, `pages get` prints it as the first line, and `pages create`/`update` confirm with it. When you reference a wiki page back to the user in chat, cite that full URL, not the bare slug. Every slug argument (`pages get/update`, all `attachments` commands) also accepts a full page URL, so you can paste a URL straight back in.
 
 Errors → stderr, non-zero exit. With `--json`, errors are JSON: `{"error":"...","status":<http-status>}`.
 

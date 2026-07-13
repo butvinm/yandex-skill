@@ -28,6 +28,7 @@ type PageAttrs struct {
 type Page struct {
 	ID         int64     `json:"id"`
 	Slug       string    `json:"slug"`
+	URL        string    `json:"url,omitempty"`
 	Title      string    `json:"title"`
 	PageType   string    `json:"page_type"`
 	Content    string    `json:"content"`
@@ -35,26 +36,28 @@ type Page struct {
 }
 
 func (p Page) Plain() string {
-	return render.SkipEmptyLines(p.Title, p.Attributes.ModifiedAt, p.Content)
+	return render.SkipEmptyLines(p.URL, p.Title, p.Attributes.ModifiedAt, p.Content)
 }
 
 type PageRef struct {
 	ID    int64  `json:"id"`
 	Slug  string `json:"slug"`
+	URL   string `json:"url,omitempty"`
 	Title string `json:"title,omitempty"`
 }
 
-func (p PageRef) Row() string { return render.SkipEmpty(p.Slug, p.Title) }
+func (p PageRef) Row() string { return render.SkipEmpty(p.URL, p.Title) }
 
 func (c *Client) GetPage(ctx context.Context, slug string) (*Page, error) {
 	q := url.Values{}
-	q.Set("slug", slug)
+	q.Set("slug", c.canonSlug(slug))
 	q.Set("fields", "content")
 	var out Page
 	_, err := c.Do(ctx, http.MethodGet, "/v1/pages?"+q.Encode(), nil, &out)
 	if err != nil {
 		return nil, err
 	}
+	out.URL = c.PageURL(out.Slug)
 	return &out, nil
 }
 
@@ -81,6 +84,7 @@ func (c *Client) ListPages(ctx context.Context, parent string) ([]PageRef, error
 	if parent == "" {
 		return nil, errors.New("--parent is required for wiki pages list")
 	}
+	parent = c.canonSlug(parent)
 	var all []PageRef
 	cursor := ""
 	for {
@@ -100,6 +104,9 @@ func (c *Client) ListPages(ctx context.Context, parent string) ([]PageRef, error
 			break
 		}
 		cursor = page.NextCursor
+	}
+	for i := range all {
+		all[i].URL = c.PageURL(all[i].Slug)
 	}
 	c.enrichTitles(ctx, all)
 	return all, nil
@@ -140,12 +147,13 @@ type createPageBody struct {
 }
 
 func (c *Client) CreatePage(ctx context.Context, slug, title, content string) (*Page, error) {
-	body := createPageBody{Slug: slug, Title: title, Content: content}
+	body := createPageBody{Slug: c.canonSlug(slug), Title: title, Content: content}
 	var out Page
 	_, err := c.Do(ctx, http.MethodPost, "/v1/pages?is_silent=true", body, &out)
 	if err != nil {
 		return nil, err
 	}
+	out.URL = c.PageURL(out.Slug)
 	return &out, nil
 }
 
@@ -166,5 +174,9 @@ func (c *Client) UpdatePage(ctx context.Context, slug, content string) (*Page, e
 	if err != nil {
 		return nil, err
 	}
+	if out.Slug == "" {
+		out.Slug = existing.Slug
+	}
+	out.URL = c.PageURL(out.Slug)
 	return &out, nil
 }
