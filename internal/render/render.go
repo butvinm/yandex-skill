@@ -46,13 +46,13 @@ func Many[T Rower](w io.Writer, format Format, items []T) error {
 	return nil
 }
 
-func Confirm(w io.Writer, format Format, action, slug string) error {
+func Confirm(w io.Writer, format Format, action, target string) error {
 	if format == JSON {
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")
-		return enc.Encode(map[string]string{action: slug})
+		return enc.Encode(map[string]string{action: target})
 	}
-	_, err := fmt.Fprintf(w, "%s: %s\n", action, slug)
+	_, err := fmt.Fprintf(w, "%s: %s\n", action, target)
 	return err
 }
 

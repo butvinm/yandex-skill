@@ -247,7 +247,7 @@ func TestE2E_WikiPagesGet_Plain(t *testing.T) {
 	if exit != 0 {
 		t.Fatalf("exit = %d", exit)
 	}
-	want := "Notes\n2026-04-29\n# hi\n"
+	want := "https://wiki.yandex.ru/team/notes\nNotes\n2026-04-29\n# hi\n"
 	if stdout != want {
 		t.Errorf("stdout = %q\nwant      %q", stdout, want)
 	}
@@ -502,7 +502,7 @@ func TestE2E_WikiPagesUpdate_AttachmentsDir_NewFile(t *testing.T) {
 	if sentUpdateBody["content"] != "![](/u/p/.files/foomangled.png)" {
 		t.Errorf("update content not rewritten: %q", sentUpdateBody["content"])
 	}
-	if !strings.Contains(stdout, "updated: u/p") {
+	if !strings.Contains(stdout, "updated: https://wiki.yandex.ru/u/p") {
 		t.Errorf("stdout = %q", stdout)
 	}
 }
@@ -636,7 +636,7 @@ func TestE2E_WikiPagesCreate_AttachmentsDir_NewPageWithImage(t *testing.T) {
 	if sentUpdateBody["content"] != want {
 		t.Errorf("update content = %q\nwant %q", sentUpdateBody["content"], want)
 	}
-	if !strings.Contains(stdout, "created: u/p") {
+	if !strings.Contains(stdout, "created: https://wiki.yandex.ru/u/p") {
 		t.Errorf("stdout = %q", stdout)
 	}
 }
@@ -665,7 +665,7 @@ func TestE2E_WikiPagesCreate_FromBodyFlag(t *testing.T) {
 	if sentBody["content"] != "hello world" {
 		t.Errorf("sent body = %v", sentBody)
 	}
-	if stdout != "created: team/new\n" {
+	if stdout != "created: https://wiki.yandex.ru/team/new\n" {
 		t.Errorf("stdout = %q", stdout)
 	}
 }
@@ -765,7 +765,7 @@ func TestE2E_WikiPagesList_PlainIncludesTitles(t *testing.T) {
 	if exit != 0 {
 		t.Fatalf("exit=%d stderr=%s", exit, stderr)
 	}
-	want := "ai-services/ai-serv  AI Services old\nai-services/ai-services-v2  AI Services\n"
+	want := "https://wiki.yandex.ru/ai-services/ai-serv  AI Services old\nhttps://wiki.yandex.ru/ai-services/ai-services-v2  AI Services\n"
 	if stdout != want {
 		t.Errorf("stdout = %q\nwant      %q", stdout, want)
 	}

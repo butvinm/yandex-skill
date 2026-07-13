@@ -14,17 +14,35 @@ import (
 )
 
 type Client struct {
-	http    *http.Client
-	baseURL string
-	headers http.Header
+	http      *http.Client
+	baseURL   string
+	publicURL string
+	headers   http.Header
 }
 
 func New(cfg auth.Config) *Client {
 	return &Client{
-		http:    &http.Client{Timeout: 30 * time.Second},
-		baseURL: strings.TrimRight(cfg.WikiBaseURL, "/"),
-		headers: cfg.WikiHeaders(),
+		http:      &http.Client{Timeout: 30 * time.Second},
+		baseURL:   strings.TrimRight(cfg.WikiBaseURL, "/"),
+		publicURL: strings.TrimRight(cfg.WikiPublicURL, "/"),
+		headers:   cfg.WikiHeaders(),
 	}
+}
+
+// PageURL builds the human-facing page URL from a slug, e.g.
+// "https://wiki.yandex.ru/team/notes". It is the link form the CLI surfaces
+// so callers cite full URLs rather than bare slugs.
+func (c *Client) PageURL(slug string) string {
+	return c.publicURL + "/" + strings.Trim(slug, "/")
+}
+
+// canonSlug accepts either a bare slug or a full public page URL and returns
+// the bare slug. This lets every slug-taking command consume the URLs the CLI
+// prints (from `pages list`, confirmations) without manual trimming.
+func (c *Client) canonSlug(s string) string {
+	s = strings.TrimSpace(s)
+	s = strings.TrimPrefix(s, c.publicURL)
+	return strings.Trim(s, "/")
 }
 
 type APIError struct {

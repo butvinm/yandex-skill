@@ -47,6 +47,8 @@ go install -ldflags "-X main.version=$(git describe --tags --always)" ./cmd/yand
 
 Use `render.SkipEmpty` (two-space separator) for inline fields and `render.SkipEmptyLines` for stacked fields. Don't introduce new separators without a reason.
 
+**Wiki page URLs.** `Page`/`PageRef` carry a `URL` field (the human-facing `https://wiki.yandex.ru/<slug>` link, built by `Client.PageURL` from `YANDEX_WIKI_PUBLIC_URL`, default `https://wiki.yandex.ru` — distinct from the `YANDEX_WIKI_BASE_URL` API host). The client populates it on returned pages, and it leads the plain-output row/block so callers cite full links instead of bare slugs. Symmetrically, `Client.canonSlug` normalizes every user-supplied slug (all page + attachment commands route through it) so a pasted full page URL is accepted wherever a slug is. The e2e plain-output assertions pin the default `https://wiki.yandex.ru` prefix — update them together with the default if it ever changes.
+
 **Errors.** Errors bubble up through `Run` and get formatted by `render.Error`. With `--json` they become `{"error":"...","status":<http>}`. Don't print errors mid-command.
 
 **Auth.** `auth.Load()` reads env vars and returns a `Config`. Tenancy is implicit from which org-id var is set (`YANDEX_CLOUD_ORG_ID` → Cloud Bearer + `X-Cloud-Org-ID`; `YANDEX_ORG_ID` → 360 OAuth + `X-Org-ID`). Setting both is rejected. Don't add a tenancy flag — the env-var-presence dispatch is the contract.

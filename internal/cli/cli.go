@@ -303,7 +303,7 @@ func (c *CreatePageCmd) Run(g *Globals) error {
 		if err != nil {
 			return err
 		}
-		return render.Confirm(g.Stdout, g.Format(), "created", p.Slug)
+		return render.Confirm(g.Stdout, g.Format(), "created", p.URL)
 	}
 	// Two-phase: create empty page first so we have a page id to bind
 	// attachments to, then upload + rewrite + update. The Wiki API binds
@@ -323,7 +323,7 @@ func (c *CreatePageCmd) Run(g *Globals) error {
 	if _, err := client.UpdatePage(g.Ctx, c.Slug, rewritten); err != nil {
 		return err
 	}
-	return render.Confirm(g.Stdout, g.Format(), "created", p.Slug)
+	return render.Confirm(g.Stdout, g.Format(), "created", p.URL)
 }
 
 type UpdatePageCmd struct {
@@ -356,7 +356,7 @@ func (c *UpdatePageCmd) Run(g *Globals) error {
 	if err != nil {
 		return err
 	}
-	return render.Confirm(g.Stdout, g.Format(), "updated", p.Slug)
+	return render.Confirm(g.Stdout, g.Format(), "updated", p.URL)
 }
 
 // --- Wiki attachments commands ---

@@ -11,12 +11,14 @@ import (
 const (
 	defaultTrackerBaseURL = "https://api.tracker.yandex.net"
 	defaultWikiBaseURL    = "https://api.wiki.yandex.net"
+	defaultWikiPublicURL  = "https://wiki.yandex.ru"
 
 	envToken          = "YANDEX_TOKEN"
 	envCloudOrgID     = "YANDEX_CLOUD_ORG_ID" // presence implies Cloud tenancy
 	envOrgID          = "YANDEX_ORG_ID"       // presence implies 360 tenancy
 	envTrackerBaseURL = "YANDEX_TRACKER_BASE_URL"
 	envWikiBaseURL    = "YANDEX_WIKI_BASE_URL"
+	envWikiPublicURL  = "YANDEX_WIKI_PUBLIC_URL"
 	envYCPath         = "YANDEX_YC_PATH" // opt-in: when set, path to `yc` executable; runs `<path> iam create-token` if YANDEX_TOKEN is unset (Cloud only)
 )
 
@@ -33,6 +35,7 @@ type Config struct {
 	Tenancy        Tenancy
 	TrackerBaseURL string
 	WikiBaseURL    string
+	WikiPublicURL  string
 }
 
 func Load() (Config, error) {
@@ -62,12 +65,16 @@ func Load() (Config, error) {
 		Tenancy:        tenancy,
 		TrackerBaseURL: os.Getenv(envTrackerBaseURL),
 		WikiBaseURL:    os.Getenv(envWikiBaseURL),
+		WikiPublicURL:  os.Getenv(envWikiPublicURL),
 	}
 	if c.TrackerBaseURL == "" {
 		c.TrackerBaseURL = defaultTrackerBaseURL
 	}
 	if c.WikiBaseURL == "" {
 		c.WikiBaseURL = defaultWikiBaseURL
+	}
+	if c.WikiPublicURL == "" {
+		c.WikiPublicURL = defaultWikiPublicURL
 	}
 	if c.Token == "" {
 		if tenancy == Y360 {
