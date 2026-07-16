@@ -6,6 +6,7 @@ A Claude Code skill for **Yandex Tracker** and **Yandex Wiki**, backed by a smal
 
 Full history in [GitHub Releases](https://github.com/butvinm/yandex-skill/releases).
 
+- [2026/07/16] **v1.0.1**: skill doc sync. Document the Tracker comments and attachments read commands.
 - [2026/07/13] **v1.0.0**: first versioned release. 15 Tracker/Wiki commands, human-facing wiki page URLs, and markdown round-trip.
 
 ## What it does

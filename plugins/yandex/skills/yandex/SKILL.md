@@ -5,7 +5,7 @@ description: Read Yandex Tracker issues and queues; read and write Yandex Wiki p
 
 # Yandex Tracker + Wiki
 
-This skill exposes 12 commands via the `yandex-cli` binary (must be on PATH).
+This skill exposes 15 commands via the `yandex-cli` binary (must be on PATH).
 
 ## Prerequisites
 
@@ -31,6 +31,9 @@ Tracker (read only):
 - `yandex-cli tracker issues get <KEY>` — fetch one issue
 - `yandex-cli tracker queues list` — list all queues
 - `yandex-cli tracker queues get <KEY>` — fetch queue config
+- `yandex-cli tracker comments list <KEY>` — list an issue's comments
+- `yandex-cli tracker attachments list <KEY>` — list an issue's attachments
+- `yandex-cli tracker attachments download <KEY> <id> [--output <path|->]` — download an issue attachment by id
 
 Wiki pages (read + write):
 
@@ -119,7 +122,7 @@ yandex-cli wiki pages update team/notes/2026-04-29 --body-file page.md --attachm
 
 ## Limitations
 
-- No Tracker writes (no comments, transitions, edits)
+- Tracker is read-only: issues, queues, comments and attachments can all be read, but nothing can be written (no posting comments, status transitions, or field edits)
 - Wiki attachment uploads are single-part only (≤16 MiB) — chunked uploads not implemented
 - No free-text search for Wiki — `pages list` accepts `--parent` only
 - Pagination is internal — large result sets fetch in full
