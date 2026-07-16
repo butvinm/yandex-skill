@@ -1,6 +1,6 @@
 {
   "name": "yandex",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Read Yandex Tracker issues/queues and read+write Yandex Wiki pages via the yandex-cli binary",
   "author": {
     "name": "butvinm"
