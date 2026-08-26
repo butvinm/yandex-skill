@@ -13,15 +13,30 @@ import (
 	"github.com/butvinm/yandex-skill/internal/auth"
 )
 
-func TestIssue_Plain(t *testing.T) {
-	i := Issue{
-		Key:         "FOO-1",
-		Summary:     "fix it",
-		Status:      Display{Display: "Open"},
-		Assignee:    Display{Display: "ivan"},
-		UpdatedAt:   "2026-04-29T10:00Z",
-		Description: "do the thing",
+// newIssue builds an Issue by JSON-encoding each value, mirroring how the
+// real decoder populates the map, rather than a Go struct literal.
+func newIssue(t *testing.T, fields map[string]any) Issue {
+	t.Helper()
+	i := Issue{}
+	for k, v := range fields {
+		b, err := json.Marshal(v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		i[k] = b
 	}
+	return i
+}
+
+func TestIssue_Plain(t *testing.T) {
+	i := newIssue(t, map[string]any{
+		"key":         "FOO-1",
+		"summary":     "fix it",
+		"status":      map[string]string{"display": "Open"},
+		"assignee":    map[string]string{"display": "ivan"},
+		"updatedAt":   "2026-04-29T10:00Z",
+		"description": "do the thing",
+	})
 	got := i.Plain()
 	want := "FOO-1: fix it\nOpen  ivan  2026-04-29T10:00Z\ndo the thing"
 	if got != want {
@@ -30,7 +45,11 @@ func TestIssue_Plain(t *testing.T) {
 }
 
 func TestIssue_Plain_SkipsEmpty(t *testing.T) {
-	i := Issue{Key: "FOO-1", Summary: "no body", Status: Display{Display: "Open"}}
+	i := newIssue(t, map[string]any{
+		"key":     "FOO-1",
+		"summary": "no body",
+		"status":  map[string]string{"display": "Open"},
+	})
 	got := i.Plain()
 	want := "FOO-1: no body\nOpen"
 	if got != want {
@@ -38,8 +57,28 @@ func TestIssue_Plain_SkipsEmpty(t *testing.T) {
 	}
 }
 
+func TestIssue_Plain_ExtraFields(t *testing.T) {
+	i := newIssue(t, map[string]any{
+		"key":            "FOO-1",
+		"summary":        "fix it",
+		"status":         map[string]string{"display": "Open"},
+		"fixVersions":    []map[string]string{{"id": "397", "display": "v1.2.0"}},
+		"releaseVersion": "24.3.1",
+	})
+	got := i.Plain()
+	want := "FOO-1: fix it\nOpen\nfixVersions: [{\"display\":\"v1.2.0\",\"id\":\"397\"}]\nreleaseVersion: 24.3.1"
+	if got != want {
+		t.Errorf("got %q\nwant %q", got, want)
+	}
+}
+
 func TestIssue_Row(t *testing.T) {
-	i := Issue{Key: "FOO-1", Summary: "fix it", Status: Display{Display: "Open"}, Assignee: Display{Display: "ivan"}}
+	i := newIssue(t, map[string]any{
+		"key":      "FOO-1",
+		"summary":  "fix it",
+		"status":   map[string]string{"display": "Open"},
+		"assignee": map[string]string{"display": "ivan"},
+	})
 	got := i.Row()
 	want := "FOO-1  Open  ivan  fix it"
 	if got != want {
@@ -61,7 +100,7 @@ func TestGetIssue(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Key != "FOO-1" || got.Status.Display != "Open" || got.Assignee.Display != "ivan" {
+	if got.str("key") != "FOO-1" || got.display("status") != "Open" || got.display("assignee") != "ivan" {
 		t.Errorf("got = %+v", got)
 	}
 }
@@ -117,7 +156,7 @@ func TestListIssues_QueueBody(t *testing.T) {
 	if _, has := sentBody["query"]; has {
 		t.Errorf("query should not be set when queue given: %v", sentBody)
 	}
-	if len(issues) != 1 || issues[0].Key != "FOO-1" {
+	if len(issues) != 1 || issues[0].str("key") != "FOO-1" {
 		t.Errorf("issues = %+v", issues)
 	}
 }

@@ -67,6 +67,50 @@ func TestE2E_TrackerIssuesGet_JSON(t *testing.T) {
 	}
 }
 
+func TestE2E_TrackerIssuesGet_Plain_ExtraFields(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `{"key":"FOO-1","summary":"hi","status":{"display":"Open"},"fixVersions":[{"id":"397","display":"v1.2.0"}]}`)
+	}))
+	defer srv.Close()
+
+	stdout, stderr, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":            "tok",
+		"YANDEX_CLOUD_ORG_ID":     "org",
+		"YANDEX_TRACKER_BASE_URL": srv.URL,
+	}, "", "tracker", "issues", "get", "FOO-1")
+
+	if exit != 0 {
+		t.Fatalf("exit=%d stderr=%s", exit, stderr)
+	}
+	want := "FOO-1: hi\nOpen\nfixVersions: [{\"id\":\"397\",\"display\":\"v1.2.0\"}]\n"
+	if stdout != want {
+		t.Errorf("stdout = %q\nwant      %q", stdout, want)
+	}
+}
+
+func TestE2E_TrackerIssuesGet_JSON_ExtraFields(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `{"key":"FOO-1","summary":"hi","status":{"display":"Open"},"fixVersions":[{"id":"397","display":"v1.2.0"}]}`)
+	}))
+	defer srv.Close()
+
+	stdout, _, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":            "tok",
+		"YANDEX_CLOUD_ORG_ID":     "org",
+		"YANDEX_TRACKER_BASE_URL": srv.URL,
+	}, "", "--json", "tracker", "issues", "get", "FOO-1")
+
+	if exit != 0 {
+		t.Fatalf("exit = %d", exit)
+	}
+	if !strings.Contains(stdout, `"fixVersions"`) {
+		t.Errorf("stdout missing fixVersions field: %q", stdout)
+	}
+	if !strings.Contains(stdout, `"display": "v1.2.0"`) {
+		t.Errorf("stdout missing nested display: %q", stdout)
+	}
+}
+
 func TestE2E_TrackerIssuesList_Plain(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v3/issues/_search" || r.Method != http.MethodPost {
