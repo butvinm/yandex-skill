@@ -77,8 +77,8 @@ Limitations are stated in the README. Don't silently expand:
 
 - No Tracker writes (no comment posting, no transitions, no edits). Reads cover issues, queues, comments (with attachment refs), and attachments (issue-level + comment-level, unified by the API).
 - Wiki attachment uploads are single-part only (≤16 MiB); no chunked or resumable upload path
-- No pagination flags (clients fetch all pages internally via Link `rel=next`)
-- Wiki page list is `--parent`-only (no free-text search; the API doesn't expose one)
+- No pagination flags (clients fetch all pages internally via Link `rel=next`). The one deliberate exception is `wiki search --limit` (1-50, single request): search is ranked, so walking the cursor to fetch everything would be wrong; the cursor itself stays unexposed.
+- Wiki page list is `--parent`-only; free-text lookup is `wiki search` (`POST /v1/search`, `internal/wiki/search.go`)
 
 If a task requires breaking one of these, surface it as a scope question before implementing.
 

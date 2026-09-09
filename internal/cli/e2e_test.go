@@ -1081,4 +1081,86 @@ func TestE2E_WikiAttachmentsDelete_JSON(t *testing.T) {
 	}
 }
 
+func TestE2E_WikiSearch_Plain(t *testing.T) {
+	var body map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/v1/search" {
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		_, _ = io.WriteString(w, `{"results":[
+			{"url":"/team/deploy","slug":"team/deploy","title":"Deploy guide","content":"run the\ndeploy script","type":"page","modified_at":"2026-04-29T10:00:00Z"},
+			{"url":"/team/deploy/.files/runbook.pdf","slug":"team/deploy/.files/runbook.pdf","title":"runbook.pdf","content":"","type":"file","modified_at":"2026-04-28T09:00:00Z"}
+		]}`)
+	}))
+	defer srv.Close()
+
+	stdout, stderr, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":         "tok",
+		"YANDEX_CLOUD_ORG_ID":  "org",
+		"YANDEX_WIKI_BASE_URL": srv.URL,
+	}, "", "wiki", "search", "deploy script", "--limit", "2", "--order-by", "modified_date")
+
+	if exit != 0 {
+		t.Fatalf("exit=%d stderr=%s", exit, stderr)
+	}
+	if body["query"] != "deploy script" || body["limit"] != float64(2) || body["order_by"] != "modified_date" {
+		t.Errorf("request body = %v", body)
+	}
+	if _, ok := body["filters"]; ok {
+		t.Errorf("filters should be omitted without --type: %v", body)
+	}
+	want := "https://wiki.yandex.ru/team/deploy  Deploy guide  2026-04-29T10:00:00Z  run the deploy script\n" +
+		"https://wiki.yandex.ru/team/deploy/.files/runbook.pdf  [file]  runbook.pdf  2026-04-28T09:00:00Z\n"
+	if stdout != want {
+		t.Errorf("stdout = %q\nwant      %q", stdout, want)
+	}
+}
+
+func TestE2E_WikiSearch_JSON_TypeFilter(t *testing.T) {
+	var body map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		_, _ = io.WriteString(w, `{"results":[{"url":"/team/deploy","slug":"team/deploy","title":"Deploy guide","content":"hit","type":"page","modified_at":"2026-04-29T10:00:00Z"}]}`)
+	}))
+	defer srv.Close()
+
+	stdout, stderr, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":         "tok",
+		"YANDEX_CLOUD_ORG_ID":  "org",
+		"YANDEX_WIKI_BASE_URL": srv.URL,
+	}, "", "--json", "wiki", "search", "deploy", "--type", "page")
+
+	if exit != 0 {
+		t.Fatalf("exit=%d stderr=%s", exit, stderr)
+	}
+	if f, _ := body["filters"].(map[string]any); f["type"] != "page" {
+		t.Errorf("filters = %v", body["filters"])
+	}
+	var got []map[string]any
+	if err := jsonUnmarshal([]byte(stdout), &got); err != nil {
+		t.Fatalf("stdout not JSON: %v\n%s", err, stdout)
+	}
+	if len(got) != 1 || got[0]["url"] != "https://wiki.yandex.ru/team/deploy" || got[0]["slug"] != "team/deploy" || got[0]["content"] != "hit" {
+		t.Errorf("got = %v", got)
+	}
+}
+
+func TestE2E_WikiSearch_RejectsBadType(t *testing.T) {
+	_, stderr, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":        "tok",
+		"YANDEX_CLOUD_ORG_ID": "org",
+	}, "", "wiki", "search", "deploy", "--type", "grid")
+	if exit == 0 {
+		t.Fatalf("expected non-zero exit, stderr=%s", stderr)
+	}
+	if !strings.Contains(stderr, "--type") {
+		t.Errorf("stderr = %q", stderr)
+	}
+}
+
 func jsonUnmarshal(b []byte, v any) error { return json.Unmarshal(b, v) }

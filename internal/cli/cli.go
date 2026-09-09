@@ -69,6 +69,7 @@ type TrackerQueuesCmd struct {
 type WikiCmd struct {
 	Pages       WikiPagesCmd       `cmd:"" help:"pages"`
 	Attachments WikiAttachmentsCmd `cmd:"" help:"page attachments"`
+	Search      SearchCmd          `cmd:"" help:"full-text search across pages and files"`
 }
 
 type WikiPagesCmd struct {
@@ -357,6 +358,27 @@ func (c *UpdatePageCmd) Run(g *Globals) error {
 		return err
 	}
 	return render.Confirm(g.Stdout, g.Format(), "updated", p.URL)
+}
+
+// --- Wiki search command ---
+
+type SearchCmd struct {
+	Query   string `arg:"" help:"full-text query"`
+	Limit   int    `name:"limit" default:"10" help:"number of top hits to return (1-50)"`
+	OrderBy string `name:"order-by" default:"relevancy" enum:"relevancy,creation_date,modified_date" help:"ranking: relevancy, creation_date or modified_date"`
+	Type    string `name:"type" default:"" enum:",page,file" help:"restrict hits to 'page' or 'file' (default: both)"`
+}
+
+func (c *SearchCmd) Run(g *Globals) error {
+	cfg, err := auth.Load()
+	if err != nil {
+		return err
+	}
+	hits, err := wiki.New(cfg).Search(g.Ctx, wiki.SearchOpts{Query: c.Query, Limit: c.Limit, OrderBy: c.OrderBy, Type: c.Type})
+	if err != nil {
+		return err
+	}
+	return render.Many(g.Stdout, g.Format(), hits)
 }
 
 // --- Wiki attachments commands ---

@@ -1,11 +1,11 @@
 ---
 name: yandex
-description: Read Yandex Tracker issues and queues; read and write Yandex Wiki pages. Use when the user asks to fetch issue details, list issues by queue, read a wiki page, or create/update wiki pages. Supports both Yandex Cloud organization and Yandex 360 for Business organization types.
+description: Read Yandex Tracker issues and queues; read, search and write Yandex Wiki pages. Use when the user asks to fetch issue details, list issues by queue, read a wiki page, search the wiki, or create/update wiki pages. Supports both Yandex Cloud organization and Yandex 360 for Business organization types.
 ---
 
 # Yandex Tracker + Wiki
 
-This skill exposes 15 commands via the `yandex-cli` binary (must be on PATH).
+This skill exposes 16 commands via the `yandex-cli` binary (must be on PATH).
 
 ## Prerequisites
 
@@ -41,6 +41,7 @@ Wiki pages (read + write):
 - `yandex-cli wiki pages get <slug-or-url> [--output <path|->] [--attachments-dir <dir>]` — fetch a page; the first plain-output line is the page's full URL; with `--output`, write raw content to file (no URL/title prefix); with `--attachments-dir`, also download attachments and rewrite in-page URLs to local relative paths
 - `yandex-cli wiki pages create --slug <new/path> --title <s> --body[-file] <s|path|-> [--attachments-dir <dir>]` — create a page; with `--attachments-dir`, upload local files referenced as `<dir>/<X>` and rewrite URLs to server form
 - `yandex-cli wiki pages update <slug> --body[-file] <s|path|-> [--attachments-dir <dir>]` — replace page body; same `--attachments-dir` semantics as create
+- `yandex-cli wiki search <query> [--limit <1-50>] [--order-by relevancy|creation_date|modified_date] [--type page|file]` - full-text search across the whole wiki; each row is `URL  [file]  title  modified_at  snippet` (default 10 hits, ranked by relevance)
 
 Wiki attachments (read + write):
 
@@ -73,6 +74,14 @@ Use the Tracker query language (the search API takes one selector — combine fi
 
 ```sh
 yandex-cli tracker issues list --query 'Queue: FOO and Status: !Closed'
+```
+
+### Find a wiki page by text
+
+When the user doesn't know the slug, search first, then `pages get` the URL from the hit:
+
+```sh
+yandex-cli wiki search "deploy runbook" --limit 5 --type page
 ```
 
 ### Write a wiki page from a draft file
@@ -124,6 +133,6 @@ yandex-cli wiki pages update team/notes/2026-04-29 --body-file page.md --attachm
 
 - Tracker is read-only: issues, queues, comments and attachments can all be read, but nothing can be written (no posting comments, status transitions, or field edits)
 - Wiki attachment uploads are single-part only (≤16 MiB) — chunked uploads not implemented
-- No free-text search for Wiki — `pages list` accepts `--parent` only
-- Pagination is internal — large result sets fetch in full
+- `pages list` accepts `--parent` only - use `wiki search` to find pages by text
+- Pagination is internal - list commands fetch in full; `wiki search` returns only the top `--limit` hits (max 50), there is no cursor to page further
 - `--attachments-dir` does not delete server attachments that aren't referenced locally — use `wiki attachments delete` explicitly

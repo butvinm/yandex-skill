@@ -11,7 +11,7 @@ Full history in [GitHub Releases](https://github.com/butvinm/yandex-skill/releas
 
 ## What it does
 
-15 commands across two products.
+16 commands across two products.
 
 **Tracker**
 
@@ -29,6 +29,7 @@ Full history in [GitHub Releases](https://github.com/butvinm/yandex-skill/releas
 - `yandex-cli wiki pages get <slug-or-url> [--output PATH|-] [--attachments-dir DIR]` — get page content, prefixed with the page's full URL (and optionally sync attachments + rewrite links for local round-trip)
 - `yandex-cli wiki pages create --slug ... --title ... --body[-file] ... [--attachments-dir DIR]` — create a page (uploads any attachments referenced as `<DIR>/<file>` first)
 - `yandex-cli wiki pages update <slug> --body[-file] ... [--attachments-dir DIR]` — update a page (same attachment sync as create)
+- `yandex-cli wiki search <query> [--limit N] [--order-by relevancy|creation_date|modified_date] [--type page|file]` - full-text search across the organization's pages and files (top N hits, default 10, max 50)
 - `yandex-cli wiki attachments list <slug>` — list a page's attachments
 - `yandex-cli wiki attachments upload <slug> --file PATH [--name NAME]` — upload (≤16 MiB)
 - `yandex-cli wiki attachments download <slug> <filename> [--output PATH|-]` — stream binary
@@ -135,6 +136,6 @@ Attachments not referenced in the markdown body are still downloaded by `get` (s
 
 - **No Tracker writes** — no comment posting, no transitions, no edits. Comments and attachments are read-only.
 - **Wiki attachment uploads are single-part only** — files larger than 16 MiB are rejected. The Yandex Wiki upload-sessions API supports chunked uploads up to ~160 GB; we ship single-part to keep the client lean.
-- **No pagination flags** — clients fetch all pages internally
-- **Wiki has no free-text search** — `wiki pages list` accepts `--parent` only
+- **No pagination flags** - list commands fetch all pages internally; `wiki search` returns only the top `--limit` hits (max 50) and exposes no cursor
+- **`wiki pages list` is `--parent`-only** - use `wiki search` to find pages by text
 - **`--attachments-dir` does not delete server attachments** that aren't referenced locally; use `wiki attachments delete` explicitly
