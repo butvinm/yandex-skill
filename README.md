@@ -6,17 +6,17 @@ A Claude Code skill for **Yandex Tracker** and **Yandex Wiki**, backed by a smal
 
 Full history in [GitHub Releases](https://github.com/butvinm/yandex-skill/releases).
 
-- [2026/07/16] **v1.0.1**: skill doc sync. Document the Tracker comments and attachments read commands.
+- [2026/09/09] **v1.1.0**: wiki full-text search (`wiki search`); `tracker issues get` now lists the issue's links (parent, subtasks, dependencies, clones).
 - [2026/07/13] **v1.0.0**: first versioned release. 15 Tracker/Wiki commands, human-facing wiki page URLs, and markdown round-trip.
 
 ## What it does
 
-15 commands across two products.
+16 commands across two products.
 
 **Tracker**
 
 - `yandex-cli tracker issues list [--queue FOO | --query '...']` — list issues
-- `yandex-cli tracker issues get FOO-1` — get one issue
+- `yandex-cli tracker issues get FOO-1` - get one issue, including its links (parent, subtasks, dependencies, clones)
 - `yandex-cli tracker queues list` — list queues
 - `yandex-cli tracker queues get FOO` — get one queue
 - `yandex-cli tracker comments list FOO-1` — list comments on an issue (with attachment refs)
@@ -29,6 +29,7 @@ Full history in [GitHub Releases](https://github.com/butvinm/yandex-skill/releas
 - `yandex-cli wiki pages get <slug-or-url> [--output PATH|-] [--attachments-dir DIR]` — get page content, prefixed with the page's full URL (and optionally sync attachments + rewrite links for local round-trip)
 - `yandex-cli wiki pages create --slug ... --title ... --body[-file] ... [--attachments-dir DIR]` — create a page (uploads any attachments referenced as `<DIR>/<file>` first)
 - `yandex-cli wiki pages update <slug> --body[-file] ... [--attachments-dir DIR]` — update a page (same attachment sync as create)
+- `yandex-cli wiki search <query> [--limit N] [--order-by relevancy|creation_date|modified_date] [--type page|file]` - full-text search across the organization's pages and files (top N hits, default 10, max 50)
 - `yandex-cli wiki attachments list <slug>` — list a page's attachments
 - `yandex-cli wiki attachments upload <slug> --file PATH [--name NAME]` — upload (≤16 MiB)
 - `yandex-cli wiki attachments download <slug> <filename> [--output PATH|-]` — stream binary
@@ -98,8 +99,13 @@ Plain text by default, optimized for LLM consumption and shell pipes:
 $ yandex-cli tracker issues get FOO-1
 FOO-1: write the cli
 Open  ivan  2026-04-29T10:00:00Z
+links:
+  FOO-2 Родительская задача FOO-1  In progress  petr  CLI epic
+  BAR-7 Зависит от FOO-1  Open  anna  Wire the skill
 Description goes here.
 ```
+
+Each link line is a sentence read left to right: `BAR-7 Зависит от FOO-1` means BAR-7 depends on FOO-1. The relation names come from Tracker's link types and follow the organization's language.
 
 `--json` flag is available for all commands and enables structured output:
 
@@ -135,6 +141,6 @@ Attachments not referenced in the markdown body are still downloaded by `get` (s
 
 - **No Tracker writes** — no comment posting, no transitions, no edits. Comments and attachments are read-only.
 - **Wiki attachment uploads are single-part only** — files larger than 16 MiB are rejected. The Yandex Wiki upload-sessions API supports chunked uploads up to ~160 GB; we ship single-part to keep the client lean.
-- **No pagination flags** — clients fetch all pages internally
-- **Wiki has no free-text search** — `wiki pages list` accepts `--parent` only
+- **No pagination flags** - list commands fetch all pages internally; `wiki search` returns only the top `--limit` hits (max 50) and exposes no cursor
+- **`wiki pages list` is `--parent`-only** - use `wiki search` to find pages by text
 - **`--attachments-dir` does not delete server attachments** that aren't referenced locally; use `wiki attachments delete` explicitly

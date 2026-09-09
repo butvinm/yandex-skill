@@ -23,11 +23,23 @@ func runWithEnv(t *testing.T, env map[string]string, stdin string, args ...strin
 	return so.String(), se.String(), exit
 }
 
+// issueServer serves FOO-1 and its links, the two requests every `issues get` makes.
+func issueServer(t *testing.T, issueJSON, linksJSON string) *httptest.Server {
+	t.Helper()
+	mux := http.NewServeMux()
+	mux.HandleFunc("/v3/issues/FOO-1", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, issueJSON)
+	})
+	mux.HandleFunc("/v3/issues/FOO-1/links", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, linksJSON)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	return srv
+}
+
 func TestE2E_TrackerIssuesGet_Plain(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = io.WriteString(w, `{"key":"FOO-1","summary":"hi","status":{"display":"Open"},"assignee":{"display":"ivan"},"updatedAt":"2026-04-29","description":"do it"}`)
-	}))
-	defer srv.Close()
+	srv := issueServer(t, `{"key":"FOO-1","summary":"hi","status":{"display":"Open"},"assignee":{"display":"ivan"},"updatedAt":"2026-04-29","description":"do it"}`, `[]`)
 
 	stdout, stderr, exit := runWithEnv(t, map[string]string{
 		"YANDEX_TOKEN":            "tok",
@@ -45,10 +57,7 @@ func TestE2E_TrackerIssuesGet_Plain(t *testing.T) {
 }
 
 func TestE2E_TrackerIssuesGet_JSON(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = io.WriteString(w, `{"key":"FOO-1","summary":"hi","status":{"display":"Open"}}`)
-	}))
-	defer srv.Close()
+	srv := issueServer(t, `{"key":"FOO-1","summary":"hi","status":{"display":"Open"}}`, `[]`)
 
 	stdout, _, exit := runWithEnv(t, map[string]string{
 		"YANDEX_TOKEN":            "tok",
@@ -68,10 +77,7 @@ func TestE2E_TrackerIssuesGet_JSON(t *testing.T) {
 }
 
 func TestE2E_TrackerIssuesGet_Plain_ExtraFields(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = io.WriteString(w, `{"key":"FOO-1","summary":"hi","status":{"display":"Open"},"fixVersions":[{"id":"397","display":"v1.2.0"}]}`)
-	}))
-	defer srv.Close()
+	srv := issueServer(t, `{"key":"FOO-1","summary":"hi","status":{"display":"Open"},"fixVersions":[{"id":"397","display":"v1.2.0"}]}`, `[]`)
 
 	stdout, stderr, exit := runWithEnv(t, map[string]string{
 		"YANDEX_TOKEN":            "tok",
@@ -89,10 +95,7 @@ func TestE2E_TrackerIssuesGet_Plain_ExtraFields(t *testing.T) {
 }
 
 func TestE2E_TrackerIssuesGet_JSON_ExtraFields(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = io.WriteString(w, `{"key":"FOO-1","summary":"hi","status":{"display":"Open"},"fixVersions":[{"id":"397","display":"v1.2.0"}]}`)
-	}))
-	defer srv.Close()
+	srv := issueServer(t, `{"key":"FOO-1","summary":"hi","status":{"display":"Open"},"fixVersions":[{"id":"397","display":"v1.2.0"}]}`, `[]`)
 
 	stdout, _, exit := runWithEnv(t, map[string]string{
 		"YANDEX_TOKEN":            "tok",
@@ -108,6 +111,60 @@ func TestE2E_TrackerIssuesGet_JSON_ExtraFields(t *testing.T) {
 	}
 	if !strings.Contains(stdout, `"display": "v1.2.0"`) {
 		t.Errorf("stdout missing nested display: %q", stdout)
+	}
+}
+
+const e2eLinksJSON = `[
+	{"id":11302,"type":{"id":"subtask","inward":"Подзадача","outward":"Родительская задача"},"direction":"inward",
+	 "object":{"key":"BAR-2","display":"parent"},"status":{"key":"inProgress","display":"In progress"},"assignee":{"display":"petr"}},
+	{"id":11307,"type":{"id":"depends","inward":"Блокирующая задача","outward":"Зависит от"},"direction":"inward",
+	 "object":{"key":"BAR-3","display":"consumer"},"status":{"key":"open","display":"Open"}}
+]`
+
+func TestE2E_TrackerIssuesGet_Plain_Links(t *testing.T) {
+	srv := issueServer(t, `{"key":"FOO-1","summary":"hi","status":{"display":"Open"},"description":"do it"}`, e2eLinksJSON)
+
+	stdout, stderr, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":            "tok",
+		"YANDEX_CLOUD_ORG_ID":     "org",
+		"YANDEX_TRACKER_BASE_URL": srv.URL,
+	}, "", "tracker", "issues", "get", "FOO-1")
+
+	if exit != 0 {
+		t.Fatalf("exit=%d stderr=%s", exit, stderr)
+	}
+	want := "FOO-1: hi\nOpen\nlinks:\n  BAR-2 Родительская задача FOO-1  In progress  petr  parent\n  BAR-3 Зависит от FOO-1  Open  consumer\ndo it\n"
+	if stdout != want {
+		t.Errorf("stdout = %q\nwant      %q", stdout, want)
+	}
+}
+
+func TestE2E_TrackerIssuesGet_JSON_Links(t *testing.T) {
+	srv := issueServer(t, `{"key":"FOO-1","summary":"hi","status":{"display":"Open"}}`, e2eLinksJSON)
+
+	stdout, _, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":            "tok",
+		"YANDEX_CLOUD_ORG_ID":     "org",
+		"YANDEX_TRACKER_BASE_URL": srv.URL,
+	}, "", "--json", "tracker", "issues", "get", "FOO-1")
+
+	if exit != 0 {
+		t.Fatalf("exit = %d", exit)
+	}
+	var got struct {
+		Links []struct {
+			ID        int    `json:"id"`
+			Direction string `json:"direction"`
+			Object    struct {
+				Key string `json:"key"`
+			} `json:"object"`
+		} `json:"links"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &got); err != nil {
+		t.Fatalf("decode: %v\n%s", err, stdout)
+	}
+	if len(got.Links) != 2 || got.Links[0].ID != 11302 || got.Links[0].Object.Key != "BAR-2" || got.Links[1].Direction != "inward" {
+		t.Errorf("links = %+v", got.Links)
 	}
 }
 
@@ -1078,6 +1135,88 @@ func TestE2E_WikiAttachmentsDelete_JSON(t *testing.T) {
 	}
 	if !strings.Contains(stdout, `"deleted": "old.png"`) {
 		t.Errorf("stdout = %q", stdout)
+	}
+}
+
+func TestE2E_WikiSearch_Plain(t *testing.T) {
+	var body map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/v1/search" {
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		_, _ = io.WriteString(w, `{"results":[
+			{"url":"/team/deploy","slug":"team/deploy","title":"Deploy guide","content":"run the\ndeploy script","type":"page","modified_at":"2026-04-29T10:00:00Z"},
+			{"url":"/team/deploy/.files/runbook.pdf","slug":"team/deploy/.files/runbook.pdf","title":"runbook.pdf","content":"","type":"file","modified_at":"2026-04-28T09:00:00Z"}
+		]}`)
+	}))
+	defer srv.Close()
+
+	stdout, stderr, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":         "tok",
+		"YANDEX_CLOUD_ORG_ID":  "org",
+		"YANDEX_WIKI_BASE_URL": srv.URL,
+	}, "", "wiki", "search", "deploy script", "--limit", "2", "--order-by", "modified_date")
+
+	if exit != 0 {
+		t.Fatalf("exit=%d stderr=%s", exit, stderr)
+	}
+	if body["query"] != "deploy script" || body["limit"] != float64(2) || body["order_by"] != "modified_date" {
+		t.Errorf("request body = %v", body)
+	}
+	if _, ok := body["filters"]; ok {
+		t.Errorf("filters should be omitted without --type: %v", body)
+	}
+	want := "https://wiki.yandex.ru/team/deploy  Deploy guide  2026-04-29T10:00:00Z  run the deploy script\n" +
+		"https://wiki.yandex.ru/team/deploy/.files/runbook.pdf  [file]  runbook.pdf  2026-04-28T09:00:00Z\n"
+	if stdout != want {
+		t.Errorf("stdout = %q\nwant      %q", stdout, want)
+	}
+}
+
+func TestE2E_WikiSearch_JSON_TypeFilter(t *testing.T) {
+	var body map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		_, _ = io.WriteString(w, `{"results":[{"url":"/team/deploy","slug":"team/deploy","title":"Deploy guide","content":"hit","type":"page","modified_at":"2026-04-29T10:00:00Z"}]}`)
+	}))
+	defer srv.Close()
+
+	stdout, stderr, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":         "tok",
+		"YANDEX_CLOUD_ORG_ID":  "org",
+		"YANDEX_WIKI_BASE_URL": srv.URL,
+	}, "", "--json", "wiki", "search", "deploy", "--type", "page")
+
+	if exit != 0 {
+		t.Fatalf("exit=%d stderr=%s", exit, stderr)
+	}
+	if f, _ := body["filters"].(map[string]any); f["type"] != "page" {
+		t.Errorf("filters = %v", body["filters"])
+	}
+	var got []map[string]any
+	if err := jsonUnmarshal([]byte(stdout), &got); err != nil {
+		t.Fatalf("stdout not JSON: %v\n%s", err, stdout)
+	}
+	if len(got) != 1 || got[0]["url"] != "https://wiki.yandex.ru/team/deploy" || got[0]["slug"] != "team/deploy" || got[0]["content"] != "hit" {
+		t.Errorf("got = %v", got)
+	}
+}
+
+func TestE2E_WikiSearch_RejectsBadType(t *testing.T) {
+	_, stderr, exit := runWithEnv(t, map[string]string{
+		"YANDEX_TOKEN":        "tok",
+		"YANDEX_CLOUD_ORG_ID": "org",
+	}, "", "wiki", "search", "deploy", "--type", "grid")
+	if exit == 0 {
+		t.Fatalf("expected non-zero exit, stderr=%s", stderr)
+	}
+	if !strings.Contains(stderr, "--type") {
+		t.Errorf("stderr = %q", stderr)
 	}
 }
 

@@ -42,7 +42,7 @@ go install -ldflags "-X main.version=$(git describe --tags --always)" ./cmd/yand
 - `cmd/yandex-cli/main.go` — thin entry, calls `cli.Main(version)`
 - `internal/cli/` — kong CLI definitions, command Run methods, e2e tests
 - `internal/auth/` — env-var config, tenancy detection, header builders
-- `internal/tracker/` — Tracker REST client + types (issues, queues, comments, attachments). `client.go` has `Do` (JSON), `DoRaw` (binary streams), and `DoPaginated` (Link `rel=next`). `attachments.go` covers list+download; comment attachments are not separately enumerable — the issue-level `/attachments` listing returns them already.
+- `internal/tracker/` — Tracker REST client + types (issues, queues, comments, attachments). `client.go` has `Do` (JSON), `DoRaw` (binary streams), and `DoPaginated` (Link `rel=next`). `attachments.go` covers list+download; comment attachments are not separately enumerable — the issue-level `/attachments` listing returns them already. `links.go` fetches `/issues/{key}/links` (the plain issue body never carries links, and `?expand=links` drops the linked issues' status/assignee); `GetIssue` attaches the raw array under the issue's `links` key. Which of `type.inward`/`type.outward` names the linked issue depends on `direction` - see `Link.Label` before touching that logic.
 - `internal/wiki/` — Wiki REST client + types (pages, attachments). `client.go` has both `Do` (JSON) and `DoRaw` (binary streams). `attachments.go` exposes the public ops; `upload_sessions.go` is the private 3-step helper used only by `UploadAttachment`.
 - `internal/render/` — Plain/JSON output, `Plainer`/`Rower` interfaces
 - `plugins/yandex/` — Claude Code plugin manifest and skill files
@@ -77,8 +77,8 @@ Limitations are stated in the README. Don't silently expand:
 
 - No Tracker writes (no comment posting, no transitions, no edits). Reads cover issues, queues, comments (with attachment refs), and attachments (issue-level + comment-level, unified by the API).
 - Wiki attachment uploads are single-part only (≤16 MiB); no chunked or resumable upload path
-- No pagination flags (clients fetch all pages internally via Link `rel=next`)
-- Wiki page list is `--parent`-only (no free-text search; the API doesn't expose one)
+- No pagination flags (clients fetch all pages internally via Link `rel=next`). The one deliberate exception is `wiki search --limit` (1-50, single request): search is ranked, so walking the cursor to fetch everything would be wrong; the cursor itself stays unexposed.
+- Wiki page list is `--parent`-only; free-text lookup is `wiki search` (`POST /v1/search`, `internal/wiki/search.go`)
 
 If a task requires breaking one of these, surface it as a scope question before implementing.
 
