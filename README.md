@@ -16,7 +16,7 @@ Full history in [GitHub Releases](https://github.com/butvinm/yandex-skill/releas
 **Tracker**
 
 - `yandex-cli tracker issues list [--queue FOO | --query '...']` — list issues
-- `yandex-cli tracker issues get FOO-1` — get one issue
+- `yandex-cli tracker issues get FOO-1` - get one issue, including its links (parent, subtasks, dependencies, clones)
 - `yandex-cli tracker queues list` — list queues
 - `yandex-cli tracker queues get FOO` — get one queue
 - `yandex-cli tracker comments list FOO-1` — list comments on an issue (with attachment refs)
@@ -99,8 +99,13 @@ Plain text by default, optimized for LLM consumption and shell pipes:
 $ yandex-cli tracker issues get FOO-1
 FOO-1: write the cli
 Open  ivan  2026-04-29T10:00:00Z
+links:
+  FOO-2 Родительская задача FOO-1  In progress  petr  CLI epic
+  BAR-7 Зависит от FOO-1  Open  anna  Wire the skill
 Description goes here.
 ```
+
+Each link line is a sentence read left to right: `BAR-7 Зависит от FOO-1` means BAR-7 depends on FOO-1. The relation names come from Tracker's link types and follow the organization's language.
 
 `--json` flag is available for all commands and enables structured output:
 

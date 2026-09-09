@@ -28,7 +28,7 @@ Tracker (read only):
 
 - `yandex-cli tracker issues list --queue <KEY>` — list issues in a queue
 - `yandex-cli tracker issues list --query '<Tracker query>'` — list issues by query language (combine filters: `Queue: FOO and Status: !Closed`)
-- `yandex-cli tracker issues get <KEY>` — fetch one issue
+- `yandex-cli tracker issues get <KEY>` - fetch one issue together with its links; the plain output has a `links:` block with one line per linked issue, `<linked-key> <relation> <KEY>  <status>  <assignee>  <title>`, read as a sentence (`BAR-3 Зависит от FOO-1` means BAR-3 depends on FOO-1). Check this block before concluding an issue has no related, blocking or parent tasks
 - `yandex-cli tracker queues list` — list all queues
 - `yandex-cli tracker queues get <KEY>` — fetch queue config
 - `yandex-cli tracker comments list <KEY>` — list an issue's comments

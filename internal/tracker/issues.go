@@ -24,7 +24,7 @@ type Issue map[string]json.RawMessage
 // coreIssueFields are the keys Plain() surfaces explicitly; formatExtraFields skips them so they aren't printed a second time.
 var coreIssueFields = map[string]bool{
 	"key": true, "summary": true, "status": true,
-	"assignee": true, "updatedAt": true, "description": true,
+	"assignee": true, "updatedAt": true, "description": true, "links": true,
 }
 
 func (i Issue) str(key string) string {
@@ -42,7 +42,21 @@ func (i Issue) display(key string) string {
 func (i Issue) Plain() string {
 	header := i.str("key") + ": " + i.str("summary")
 	meta := render.SkipEmpty(i.display("status"), i.display("assignee"), i.str("updatedAt"))
-	return render.SkipEmptyLines(header, meta, i.str("description"), formatExtraFields(i))
+	return render.SkipEmptyLines(header, meta, i.linksBlock(), i.str("description"), formatExtraFields(i))
+}
+
+// linksBlock renders the "links" array GetIssue attaches as an indented block under a "links:" heading, one Link.Line per entry; empty when the issue has no links or came from a search (which never carries them).
+func (i Issue) linksBlock() string {
+	var links []Link
+	if json.Unmarshal(i["links"], &links) != nil || len(links) == 0 {
+		return ""
+	}
+	lines := make([]string, 0, len(links)+1)
+	lines = append(lines, "links:")
+	for _, l := range links {
+		lines = append(lines, "  "+l.Line(i.str("key")))
+	}
+	return strings.Join(lines, "\n")
 }
 
 func (i Issue) Row() string {
@@ -74,12 +88,21 @@ func formatFieldValue(raw json.RawMessage) string {
 	return string(raw)
 }
 
+// GetIssue fetches an issue and attaches its links under the "links" key, since the plain issue endpoint never includes them and a reader that misses a dependency has no way to notice.
 func (c *Client) GetIssue(ctx context.Context, key string) (*Issue, error) {
 	var out Issue
-	_, err := c.Do(ctx, http.MethodGet, "/v3/issues/"+key, nil, &out)
+	if _, err := c.Do(ctx, http.MethodGet, "/v3/issues/"+key, nil, &out); err != nil {
+		return nil, err
+	}
+	links, err := c.ListLinks(ctx, key)
+	if err != nil {
+		return nil, fmt.Errorf("links: %w", err)
+	}
+	raw, err := json.Marshal(links)
 	if err != nil {
 		return nil, err
 	}
+	out["links"] = raw
 	return &out, nil
 }
 

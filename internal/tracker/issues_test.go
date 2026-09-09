@@ -86,13 +86,49 @@ func TestIssue_Row(t *testing.T) {
 	}
 }
 
+func TestIssue_Plain_Links(t *testing.T) {
+	i := newIssue(t, map[string]any{
+		"key":         "FOO-1",
+		"summary":     "fix it",
+		"status":      map[string]string{"display": "Open"},
+		"description": "do the thing",
+		"links": []map[string]any{
+			{"type": map[string]string{"id": "subtask", "inward": "Подзадача", "outward": "Родительская задача"}, "direction": "inward",
+				"object": map[string]string{"key": "BAR-2", "display": "parent"}, "status": map[string]string{"display": "In progress"}, "assignee": map[string]string{"display": "petr"}},
+			{"type": map[string]string{"id": "depends", "inward": "Блокирующая задача", "outward": "Зависит от"}, "direction": "outward",
+				"object": map[string]string{"key": "BAR-3", "display": "blocker"}},
+		},
+	})
+	got := i.Plain()
+	want := "FOO-1: fix it\nOpen\nlinks:\n  BAR-2 Родительская задача FOO-1  In progress  petr  parent\n  BAR-3 Блокирующая задача FOO-1  blocker\ndo the thing"
+	if got != want {
+		t.Errorf("got %q\nwant %q", got, want)
+	}
+}
+
+func TestIssue_Plain_NoLinks(t *testing.T) {
+	i := newIssue(t, map[string]any{
+		"key":     "FOO-1",
+		"summary": "fix it",
+		"status":  map[string]string{"display": "Open"},
+		"links":   []any{},
+	})
+	got := i.Plain()
+	want := "FOO-1: fix it\nOpen"
+	if got != want {
+		t.Errorf("got %q\nwant %q", got, want)
+	}
+}
+
 func TestGetIssue(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v3/issues/FOO-1" {
-			t.Errorf("path = %s", r.URL.Path)
-		}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/v3/issues/FOO-1", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.WriteString(w, `{"key":"FOO-1","summary":"hi","status":{"display":"Open"},"assignee":{"display":"ivan"},"updatedAt":"X","description":"D"}`)
-	}))
+	})
+	mux.HandleFunc("/v3/issues/FOO-1/links", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `[{"id":7,"type":{"id":"relates","inward":"Связана","outward":"Связана"},"direction":"outward","object":{"key":"BAR-2","display":"other"},"status":{"display":"Open"}}]`)
+	})
+	srv := httptest.NewServer(mux)
 	defer srv.Close()
 	c := New(auth.Config{Token: "t", OrgID: "o", TrackerBaseURL: srv.URL})
 
@@ -102,6 +138,33 @@ func TestGetIssue(t *testing.T) {
 	}
 	if got.str("key") != "FOO-1" || got.display("status") != "Open" || got.display("assignee") != "ivan" {
 		t.Errorf("got = %+v", got)
+	}
+	var links []Link
+	if err := json.Unmarshal((*got)["links"], &links); err != nil {
+		t.Fatalf("links: %v", err)
+	}
+	if len(links) != 1 || links[0].Object.Key != "BAR-2" {
+		t.Errorf("links = %+v", links)
+	}
+}
+
+func TestGetIssue_LinksError(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/v3/issues/FOO-1", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `{"key":"FOO-1"}`)
+	})
+	mux.HandleFunc("/v3/issues/FOO-1/links", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(403)
+		_, _ = io.WriteString(w, `{"errorMessages":["no access"]}`)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	c := New(auth.Config{Token: "t", OrgID: "o", TrackerBaseURL: srv.URL})
+
+	_, err := c.GetIssue(context.Background(), "FOO-1")
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) || apiErr.Status != 403 {
+		t.Fatalf("err = %v", err)
 	}
 }
 
