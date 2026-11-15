@@ -6,7 +6,7 @@ A Claude Code skill for **Yandex Tracker** and **Yandex Wiki**, backed by a smal
 
 Full history in [GitHub Releases](https://github.com/butvinm/yandex-skill/releases).
 
-- [2026/09/09] **v1.1.0**: wiki full-text search (`wiki search`); `tracker issues get` now lists the issue's links (parent, subtasks, dependencies, clones).
+- [2026/11/15] **v1.1.1**: fix premature IAM-token expiry by delegating token validity and renewal to `yc` on every invocation.
 - [2026/07/13] **v1.0.0**: first versioned release. 15 Tracker/Wiki commands, human-facing wiki page URLs, and markdown round-trip.
 
 ## What it does
@@ -65,7 +65,7 @@ Once you have a token and org id, set the env vars below (full list under [Confi
 
 Set exactly one — both at once is rejected.
 
-For Yandex Cloud, you can let the CLI mint an IAM token automatically by opting in to the `yc` fallback: set `YANDEX_YC_PATH` to the path of your `yc` binary (e.g. `YANDEX_YC_PATH=yc` for a `PATH` lookup, or `YANDEX_YC_PATH=/usr/local/bin/yc` for an explicit path) and leave `YANDEX_TOKEN` unset. The binary will run `<yc> iam create-token`, then cache the result at `os.UserCacheDir()/yandex-cli/iam-token.json` (mode 0600) and re-use it on subsequent invocations until it's older than `YANDEX_IAM_TOKEN_REFRESH_PERIOD` hours (default 10, max 12). Requires the [Yandex Cloud CLI](https://yandex.cloud/en/docs/cli/quickstart) installed and an initialized profile (`yc init`). 360 tenancies are unaffected (yc cannot mint OAuth tokens). To force a re-mint, delete the cache file.
+For Yandex Cloud, you can let the CLI mint an IAM token automatically by opting in to the `yc` fallback: set `YANDEX_YC_PATH` to the path of your `yc` binary (e.g. `YANDEX_YC_PATH=yc` for a `PATH` lookup, or `YANDEX_YC_PATH=/usr/local/bin/yc` for an explicit path) and leave `YANDEX_TOKEN` unset. The binary runs `<yc> iam create-token` on each invocation, leaving token validity and renewal to `yc`. There is no additional token cache: a fetched IAM token may already be close to expiry. Legacy `yandex-cli/iam-token.json` cache files and `YANDEX_IAM_TOKEN_REFRESH_PERIOD` are ignored. Requires the [Yandex Cloud CLI](https://yandex.cloud/en/docs/cli/quickstart) installed and an initialized profile (`yc init`). 360 tenancies are unaffected (yc cannot mint OAuth tokens). With federated profiles, `yc` may open a browser when reauthentication is required.
 
 ### Verify
 
@@ -85,8 +85,7 @@ From Claude Code, ask: _"list my Yandex Tracker queues"_ — Claude should auto-
 | `YANDEX_TOKEN`                    | yes (unless `YANDEX_YC_PATH` on Cloud) | IAM token (Yandex Cloud) or OAuth token (Yandex 360)                                                                                                                                                                                            |
 | `YANDEX_CLOUD_ORG_ID`             | one of these is needed                 | Yandex Cloud organization id; presence selects this org type                                                                                                                                                                                    |
 | `YANDEX_ORG_ID`                   | one of these is needed                 | Yandex 360 for Business organization id; presence selects this                                                                                                                                                                                  |
-| `YANDEX_YC_PATH`                  | no                                     | Path to `yc` executable (Cloud only). When set, fetches an IAM token via `<yc> iam create-token` if `YANDEX_TOKEN` is unset; result is cached at `os.UserCacheDir()/yandex-cli/iam-token.json`. Use `yc` for `PATH` lookup or an absolute path. |
-| `YANDEX_IAM_TOKEN_REFRESH_PERIOD` | no                                     | Cache lifetime in hours (default `10`, clamped to `12`). Only consulted when `YANDEX_YC_PATH` is set. Invalid values silently fall back to default.                                                                                             |
+| `YANDEX_YC_PATH`                  | no                                     | Path to `yc` executable (Cloud only). When set, fetches an IAM token via `<yc> iam create-token` if `YANDEX_TOKEN` is unset; token validity and renewal are handled by `yc` on every invocation. Use `yc` for `PATH` lookup or an absolute path. |
 | `YANDEX_TRACKER_BASE_URL`         | no                                     | Default: `https://api.tracker.yandex.net`                                                                                                                                                                                                       |
 | `YANDEX_WIKI_BASE_URL`            | no                                     | Default: `https://api.wiki.yandex.net` (API host)                                                                                                                                                                                               |
 | `YANDEX_WIKI_PUBLIC_URL`          | no                                     | Default: `https://wiki.yandex.ru` (human-facing host used to build the page URLs shown in output)                                                                                                                                               |

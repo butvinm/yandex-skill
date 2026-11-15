@@ -18,7 +18,7 @@ These environment variables must be set in the user's shell:
 Organization type is inferred from which org-id var is set. Set exactly one.
 See [Yandex Tracker → API access](https://yandex.ru/support/tracker/en/api-ref/access) for the underlying auth model.
 
-Optional on Cloud: set `YANDEX_YC_PATH` to the path of your `yc` binary (e.g. `yc` for PATH lookup, or an absolute path) to make the binary mint an IAM token via `<yc> iam create-token` when `YANDEX_TOKEN` is unset. The token is cached on disk and refreshed every `YANDEX_IAM_TOKEN_REFRESH_PERIOD` hours (default 10, max 12). Requires an initialized `yc` profile. Has no effect on 360 (yc cannot mint OAuth tokens).
+Optional on Cloud: set `YANDEX_YC_PATH` to the path of your `yc` binary (e.g. `yc` for PATH lookup, or an absolute path) to make the binary mint an IAM token via `<yc> iam create-token` when `YANDEX_TOKEN` is unset. The binary asks `yc` for a token on each invocation; `yc` handles validity and renewal. Legacy CLI token caches and `YANDEX_IAM_TOKEN_REFRESH_PERIOD` are ignored. With federated profiles, `yc` may open a browser when sign-in is required; do not diagnose that as a missing `YANDEX_TOKEN` when automatic authentication is configured. Requires an initialized `yc` profile. Has no effect on 360 (yc cannot mint OAuth tokens).
 
 If any are missing, the CLI exits non-zero with a tenancy-specific hint in the error message. Direct the user to the project README for setup; do NOT try to set these yourself.
 

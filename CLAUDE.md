@@ -98,4 +98,4 @@ Download by slug + filename uses `GET /v1/pages/attachments/download_by_url?url=
 - Don't `git add .` — stage specific files. Atomic commits.
 - Don't add a Makefile back unless asked; the bare `go` commands are the contract.
 - Don't add comments that restate code. Explain _why_ only when non-obvious.
-- Don't broaden the auth model (no token files, no keyring) without an explicit ask. The one exception is the IAM token cache at `os.UserCacheDir()/yandex-cli/iam-token.json` (mode 0600), only populated when `YANDEX_YC_PATH` is set. Don't extend disk persistence to OAuth tokens, refresh tokens, or org-id without an explicit ask.
+- Don't broaden the auth model (no token files, no keyring) without an explicit ask. Token validity and renewal for the `YANDEX_YC_PATH` fallback are delegated to `yc` on every invocation. Do not cache its token output by acquisition time: federated tokens can expire much sooner than 12 hours.
